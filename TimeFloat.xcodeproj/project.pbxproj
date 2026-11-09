@@ -1,0 +1,644 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		ED8C4765797FB0A53706322E /* PipHostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C8985F58EFD1177A5B4EA19 /* PipHostView.swift */; };
+		4D9F9CFE2836938206F4BB26 /* SilentAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74AC9C8230786D2E68A7D939 /* SilentAudioEngine.swift */; };
+		9E7A18EB8B83C99FE9A6514D /* ClockDrawing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 865CA14096F6B92DA938AEE8 /* ClockDrawing.swift */; };
+		D84C53C23447036E412A99B1 /* SampleBufferFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3FBE0DFABCAC2914BBA88E /* SampleBufferFactory.swift */; };
+		3E6AC212F653CCF3B142A0DA /* FloatingClockSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E806F3D56A91DF37066D032 /* FloatingClockSession.swift */; };
+		3F9C7EE2D3FE686B72C41C55 /* Shortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BE19D97509604E40E51C11B /* Shortcuts.swift */; };
+		3BC31D7490A65406B4939138 /* NetworkTimeSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 195E99C652037189F1D8B413 /* NetworkTimeSync.swift */; };
+		ACCC47E379CA339749435458 /* TimeFloatApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC4B94FF8C3C892EDA559EB /* TimeFloatApp.swift */; };
+		4E1AA58DCFAFC628F8A80C36 /* ColorWheelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8B04D8031213E1E10BBD5A6 /* ColorWheelView.swift */; };
+		D80D6F65D48FE9BEE34E8A96 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69BDBC9F23C4F9AF8E80D165 /* RootView.swift */; };
+		249DD7C8EAA0A5517EC73EFE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 556ECF22F301169C10AFCCCE /* SettingsView.swift */; };
+		A03F099676962B30C61D5F85 /* AppIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5F524B4DB127FF3B895441 /* AppIdentity.swift */; };
+		25821C06C89178E46AD8D31F /* CaptionRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2934FFF594A7CF3F6887CDBB /* CaptionRules.swift */; };
+		B624C0B6E768BA19C461B896 /* ClockActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5A6D2D2EDABCBD66263440 /* ClockActivityAttributes.swift */; };
+		02FB426ED88CA16DCBE3F9C7 /* ClockFaceText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B7FE95F1007C08CDB28320D /* ClockFaceText.swift */; };
+		43A08322D31B6DD50D7BF93B /* ClockIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34721029936D2CF5DE129D45 /* ClockIntents.swift */; };
+		F052D925B3D2A72016C367A8 /* ClockSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B6324E70D08249B4C473139 /* ClockSettings.swift */; };
+		764D554CD132511B035BAFA7 /* ColorMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4701F63F08664E8CAF87FB56 /* ColorMath.swift */; };
+		42C567065DCFD2B760AB558C /* DarwinBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCC0EE06D25DDD986FEBB0A /* DarwinBridge.swift */; };
+		67DBCDE0DA368C3FEB4BA74A /* NTPPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6EA578081DBD765FA64CC65 /* NTPPacket.swift */; };
+		43951BFF1B1F3307BEA762AC /* SrtLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00CEDBD2ACB717E7F0D136 /* SrtLog.swift */; };
+		543A5B6F4740CEDE609D6286 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 07991C05F196026607BC8BE4 /* Assets.xcassets */; };
+		EA0B5C6464084CED299CB7A3 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3B3871B531DA36B342C152A1 /* PrivacyInfo.xcprivacy */; };
+		764826F4F24D1B726DC8AC10 /* ClockLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CABEEA9B7ECD8897583ED11 /* ClockLiveActivity.swift */; };
+		B68172F10BCFD8DE07089495 /* ClockWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A51C1D3F34BBAE3581ED0CD /* ClockWidgets.swift */; };
+		EF7371B405E7667D11398457 /* LogCaptionControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 849826960F28513688A175CB /* LogCaptionControl.swift */; };
+		2A2E320704B836A18E7BC8DE /* TimeFloatWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE2DA1D79D1DF70BAA03308 /* TimeFloatWidgetBundle.swift */; };
+		89329C83162556EF2729C6D1 /* AppIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5F524B4DB127FF3B895441 /* AppIdentity.swift */; };
+		E7B592F9D675D561D6BDFB4B /* CaptionRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2934FFF594A7CF3F6887CDBB /* CaptionRules.swift */; };
+		1663A6711050561923D237D4 /* ClockActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5A6D2D2EDABCBD66263440 /* ClockActivityAttributes.swift */; };
+		5EB8D8244D67A3789BD5A9FF /* ClockFaceText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B7FE95F1007C08CDB28320D /* ClockFaceText.swift */; };
+		149DF71ADAFE8C9F71C2F19B /* ClockIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34721029936D2CF5DE129D45 /* ClockIntents.swift */; };
+		73EB69D1F2C7998395933318 /* ClockSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B6324E70D08249B4C473139 /* ClockSettings.swift */; };
+		CD4D4C3A0E7F0456AB304334 /* ColorMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4701F63F08664E8CAF87FB56 /* ColorMath.swift */; };
+		3A1597E0710DE2F4C5529655 /* DarwinBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCC0EE06D25DDD986FEBB0A /* DarwinBridge.swift */; };
+		B83D28591818C06AA3974A27 /* NTPPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6EA578081DBD765FA64CC65 /* NTPPacket.swift */; };
+		8E481854CE87AB865E247C89 /* SrtLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA00CEDBD2ACB717E7F0D136 /* SrtLog.swift */; };
+		3727DB36C0B188C53D687EE4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = E6EF4268B4A1C6F22AEA9982 /* PrivacyInfo.xcprivacy */; };
+		69449AE6AA18D6F9D6DD7665 /* TimeFloatWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C47665D1BA4105DF9684DC4 /* TimeFloatWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		9C8985F58EFD1177A5B4EA19 /* PipHostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipHostView.swift; sourceTree = "<group>"; };
+		74AC9C8230786D2E68A7D939 /* SilentAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilentAudioEngine.swift; sourceTree = "<group>"; };
+		865CA14096F6B92DA938AEE8 /* ClockDrawing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockDrawing.swift; sourceTree = "<group>"; };
+		FB3FBE0DFABCAC2914BBA88E /* SampleBufferFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleBufferFactory.swift; sourceTree = "<group>"; };
+		8E806F3D56A91DF37066D032 /* FloatingClockSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingClockSession.swift; sourceTree = "<group>"; };
+		0BE19D97509604E40E51C11B /* Shortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shortcuts.swift; sourceTree = "<group>"; };
+		195E99C652037189F1D8B413 /* NetworkTimeSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTimeSync.swift; sourceTree = "<group>"; };
+		DAC4B94FF8C3C892EDA559EB /* TimeFloatApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFloatApp.swift; sourceTree = "<group>"; };
+		C8B04D8031213E1E10BBD5A6 /* ColorWheelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorWheelView.swift; sourceTree = "<group>"; };
+		69BDBC9F23C4F9AF8E80D165 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		556ECF22F301169C10AFCCCE /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		4A5F524B4DB127FF3B895441 /* AppIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIdentity.swift; sourceTree = "<group>"; };
+		2934FFF594A7CF3F6887CDBB /* CaptionRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptionRules.swift; sourceTree = "<group>"; };
+		3B5A6D2D2EDABCBD66263440 /* ClockActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockActivityAttributes.swift; sourceTree = "<group>"; };
+		2B7FE95F1007C08CDB28320D /* ClockFaceText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockFaceText.swift; sourceTree = "<group>"; };
+		34721029936D2CF5DE129D45 /* ClockIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockIntents.swift; sourceTree = "<group>"; };
+		1B6324E70D08249B4C473139 /* ClockSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockSettings.swift; sourceTree = "<group>"; };
+		4701F63F08664E8CAF87FB56 /* ColorMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorMath.swift; sourceTree = "<group>"; };
+		BDCC0EE06D25DDD986FEBB0A /* DarwinBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DarwinBridge.swift; sourceTree = "<group>"; };
+		F6EA578081DBD765FA64CC65 /* NTPPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NTPPacket.swift; sourceTree = "<group>"; };
+		CA00CEDBD2ACB717E7F0D136 /* SrtLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SrtLog.swift; sourceTree = "<group>"; };
+		2CABEEA9B7ECD8897583ED11 /* ClockLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockLiveActivity.swift; sourceTree = "<group>"; };
+		7A51C1D3F34BBAE3581ED0CD /* ClockWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockWidgets.swift; sourceTree = "<group>"; };
+		849826960F28513688A175CB /* LogCaptionControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogCaptionControl.swift; sourceTree = "<group>"; };
+		3EE2DA1D79D1DF70BAA03308 /* TimeFloatWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFloatWidgetBundle.swift; sourceTree = "<group>"; };
+		07991C05F196026607BC8BE4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		3B3871B531DA36B342C152A1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		E6EF4268B4A1C6F22AEA9982 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		2C94172D67DA116C7BB32C13 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
+		F55905DF70F648651E6283C4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		0848815E140F58DD7072DE9A /* TimeFloat.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TimeFloat.entitlements; sourceTree = "<group>"; };
+		D491812C88198DDF6B02295F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		54144D47DBA2777BB23BFE3B /* TimeFloatWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TimeFloatWidget.entitlements; sourceTree = "<group>"; };
+		B6CDB6E5D160E013280D3C68 /* TimeFloat.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TimeFloat.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C47665D1BA4105DF9684DC4 /* TimeFloatWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TimeFloatWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		A92C54CDD34F93AD528C20E1 /* root */ = {
+			isa = PBXGroup;
+			children = (
+				00C45FD35CB0F9C5F764F070 /* Products */,
+				5619E268CFFE28118C19FC6A /* Config */,
+				44C7E229889FE9D1BB841A79 /* Shared */,
+				9DD9E51156A9F92912284564 /* TimeFloat */,
+				D7BD41B284EA1A166CB5A2A8 /* TimeFloatWidget */,
+			);
+			sourceTree = "<group>";
+		};
+		5619E268CFFE28118C19FC6A /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				2C94172D67DA116C7BB32C13 /* Shared.xcconfig */,
+			);
+			name = Config;
+			path = Config;
+			sourceTree = "<group>";
+		};
+		44C7E229889FE9D1BB841A79 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				4A5F524B4DB127FF3B895441 /* AppIdentity.swift */,
+				2934FFF594A7CF3F6887CDBB /* CaptionRules.swift */,
+				3B5A6D2D2EDABCBD66263440 /* ClockActivityAttributes.swift */,
+				2B7FE95F1007C08CDB28320D /* ClockFaceText.swift */,
+				34721029936D2CF5DE129D45 /* ClockIntents.swift */,
+				1B6324E70D08249B4C473139 /* ClockSettings.swift */,
+				4701F63F08664E8CAF87FB56 /* ColorMath.swift */,
+				BDCC0EE06D25DDD986FEBB0A /* DarwinBridge.swift */,
+				F6EA578081DBD765FA64CC65 /* NTPPacket.swift */,
+				CA00CEDBD2ACB717E7F0D136 /* SrtLog.swift */,
+			);
+			name = Shared;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		9DD9E51156A9F92912284564 /* TimeFloat */ = {
+			isa = PBXGroup;
+			children = (
+				A61F3CB7CF3786CA90BDFF60 /* PiP */,
+				C58461368EBD8F12BB6AC231 /* Render */,
+				89ACC854F36FB3597526CDC9 /* Session */,
+				C962680A1709AFB0F849506C /* Time */,
+				B32EE25189D9CCDB44B3722E /* UI */,
+				07991C05F196026607BC8BE4 /* Assets.xcassets */,
+				F55905DF70F648651E6283C4 /* Info.plist */,
+				3B3871B531DA36B342C152A1 /* PrivacyInfo.xcprivacy */,
+				0BE19D97509604E40E51C11B /* Shortcuts.swift */,
+				0848815E140F58DD7072DE9A /* TimeFloat.entitlements */,
+				DAC4B94FF8C3C892EDA559EB /* TimeFloatApp.swift */,
+			);
+			name = TimeFloat;
+			path = TimeFloat;
+			sourceTree = "<group>";
+		};
+		D7BD41B284EA1A166CB5A2A8 /* TimeFloatWidget */ = {
+			isa = PBXGroup;
+			children = (
+				2CABEEA9B7ECD8897583ED11 /* ClockLiveActivity.swift */,
+				7A51C1D3F34BBAE3581ED0CD /* ClockWidgets.swift */,
+				D491812C88198DDF6B02295F /* Info.plist */,
+				849826960F28513688A175CB /* LogCaptionControl.swift */,
+				E6EF4268B4A1C6F22AEA9982 /* PrivacyInfo.xcprivacy */,
+				54144D47DBA2777BB23BFE3B /* TimeFloatWidget.entitlements */,
+				3EE2DA1D79D1DF70BAA03308 /* TimeFloatWidgetBundle.swift */,
+			);
+			name = TimeFloatWidget;
+			path = TimeFloatWidget;
+			sourceTree = "<group>";
+		};
+		A61F3CB7CF3786CA90BDFF60 /* PiP */ = {
+			isa = PBXGroup;
+			children = (
+				9C8985F58EFD1177A5B4EA19 /* PipHostView.swift */,
+				74AC9C8230786D2E68A7D939 /* SilentAudioEngine.swift */,
+			);
+			name = PiP;
+			path = PiP;
+			sourceTree = "<group>";
+		};
+		C58461368EBD8F12BB6AC231 /* Render */ = {
+			isa = PBXGroup;
+			children = (
+				865CA14096F6B92DA938AEE8 /* ClockDrawing.swift */,
+				FB3FBE0DFABCAC2914BBA88E /* SampleBufferFactory.swift */,
+			);
+			name = Render;
+			path = Render;
+			sourceTree = "<group>";
+		};
+		89ACC854F36FB3597526CDC9 /* Session */ = {
+			isa = PBXGroup;
+			children = (
+				8E806F3D56A91DF37066D032 /* FloatingClockSession.swift */,
+			);
+			name = Session;
+			path = Session;
+			sourceTree = "<group>";
+		};
+		C962680A1709AFB0F849506C /* Time */ = {
+			isa = PBXGroup;
+			children = (
+				195E99C652037189F1D8B413 /* NetworkTimeSync.swift */,
+			);
+			name = Time;
+			path = Time;
+			sourceTree = "<group>";
+		};
+		B32EE25189D9CCDB44B3722E /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				C8B04D8031213E1E10BBD5A6 /* ColorWheelView.swift */,
+				69BDBC9F23C4F9AF8E80D165 /* RootView.swift */,
+				556ECF22F301169C10AFCCCE /* SettingsView.swift */,
+			);
+			name = UI;
+			path = UI;
+			sourceTree = "<group>";
+		};
+		00C45FD35CB0F9C5F764F070 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B6CDB6E5D160E013280D3C68 /* TimeFloat.app */,
+				4C47665D1BA4105DF9684DC4 /* TimeFloatWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7FF8C9FC6B7E2F79F2A9323E /* App Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ED8C4765797FB0A53706322E /* app-src:TimeFloat/PiP/PipHostView.swift */,
+				4D9F9CFE2836938206F4BB26 /* app-src:TimeFloat/PiP/SilentAudioEngine.swift */,
+				9E7A18EB8B83C99FE9A6514D /* app-src:TimeFloat/Render/ClockDrawing.swift */,
+				D84C53C23447036E412A99B1 /* app-src:TimeFloat/Render/SampleBufferFactory.swift */,
+				3E6AC212F653CCF3B142A0DA /* app-src:TimeFloat/Session/FloatingClockSession.swift */,
+				3F9C7EE2D3FE686B72C41C55 /* app-src:TimeFloat/Shortcuts.swift */,
+				3BC31D7490A65406B4939138 /* app-src:TimeFloat/Time/NetworkTimeSync.swift */,
+				ACCC47E379CA339749435458 /* app-src:TimeFloat/TimeFloatApp.swift */,
+				4E1AA58DCFAFC628F8A80C36 /* app-src:TimeFloat/UI/ColorWheelView.swift */,
+				D80D6F65D48FE9BEE34E8A96 /* app-src:TimeFloat/UI/RootView.swift */,
+				249DD7C8EAA0A5517EC73EFE /* app-src:TimeFloat/UI/SettingsView.swift */,
+				A03F099676962B30C61D5F85 /* app-src:Shared/AppIdentity.swift */,
+				25821C06C89178E46AD8D31F /* app-src:Shared/CaptionRules.swift */,
+				B624C0B6E768BA19C461B896 /* app-src:Shared/ClockActivityAttributes.swift */,
+				02FB426ED88CA16DCBE3F9C7 /* app-src:Shared/ClockFaceText.swift */,
+				43A08322D31B6DD50D7BF93B /* app-src:Shared/ClockIntents.swift */,
+				F052D925B3D2A72016C367A8 /* app-src:Shared/ClockSettings.swift */,
+				764D554CD132511B035BAFA7 /* app-src:Shared/ColorMath.swift */,
+				42C567065DCFD2B760AB558C /* app-src:Shared/DarwinBridge.swift */,
+				67DBCDE0DA368C3FEB4BA74A /* app-src:Shared/NTPPacket.swift */,
+				43951BFF1B1F3307BEA762AC /* app-src:Shared/SrtLog.swift */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C370E812D956C10A8A780229 /* Widget Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				764826F4F24D1B726DC8AC10 /* widget-src:TimeFloatWidget/ClockLiveActivity.swift */,
+				B68172F10BCFD8DE07089495 /* widget-src:TimeFloatWidget/ClockWidgets.swift */,
+				EF7371B405E7667D11398457 /* widget-src:TimeFloatWidget/LogCaptionControl.swift */,
+				2A2E320704B836A18E7BC8DE /* widget-src:TimeFloatWidget/TimeFloatWidgetBundle.swift */,
+				89329C83162556EF2729C6D1 /* widget-src:Shared/AppIdentity.swift */,
+				E7B592F9D675D561D6BDFB4B /* widget-src:Shared/CaptionRules.swift */,
+				1663A6711050561923D237D4 /* widget-src:Shared/ClockActivityAttributes.swift */,
+				5EB8D8244D67A3789BD5A9FF /* widget-src:Shared/ClockFaceText.swift */,
+				149DF71ADAFE8C9F71C2F19B /* widget-src:Shared/ClockIntents.swift */,
+				73EB69D1F2C7998395933318 /* widget-src:Shared/ClockSettings.swift */,
+				CD4D4C3A0E7F0456AB304334 /* widget-src:Shared/ColorMath.swift */,
+				3A1597E0710DE2F4C5529655 /* widget-src:Shared/DarwinBridge.swift */,
+				B83D28591818C06AA3974A27 /* widget-src:Shared/NTPPacket.swift */,
+				8E481854CE87AB865E247C89 /* widget-src:Shared/SrtLog.swift */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		ACA16EC71E4125BC7D8202DD /* App Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				543A5B6F4740CEDE609D6286 /* app-res:TimeFloat/Assets.xcassets */,
+				EA0B5C6464084CED299CB7A3 /* app-res:TimeFloat/PrivacyInfo.xcprivacy */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8526AB402AA07EF298DB485F /* Widget Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3727DB36C0B188C53D687EE4 /* widget-res:TimeFloatWidget/PrivacyInfo.xcprivacy */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		2D3446C63F9EEB9172CAE05B /* App Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		23120BCE61A9E306110DC024 /* Widget Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		F0AB04EE052351C80F3286E9 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				69449AE6AA18D6F9D6DD7665 /* TimeFloatWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		0DD22CB6C2E8E29B0AF6C12D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A5A0AA9F4FB5BC8D9254438A;
+			remoteInfo = TimeFloatWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		A4C80477431259D93FE11E57 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A5A0AA9F4FB5BC8D9254438A /* TimeFloatWidget */;
+			targetProxy = 0DD22CB6C2E8E29B0AF6C12D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		73BFC4993D558C2844970A56 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2C94172D67DA116C7BB32C13 /* Shared.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				ENABLE_PREVIEWS = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		3C5BC6FE1E438E679FB7F74F /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2C94172D67DA116C7BB32C13 /* Shared.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				ENABLE_PREVIEWS = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		CC982C4F58FE5F6D2B2680C2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2C94172D67DA116C7BB32C13 /* Shared.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TimeFloat/TimeFloat.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TimeFloat/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Debug;
+		};
+		06B6A15813AE62FDCFE74422 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2C94172D67DA116C7BB32C13 /* Shared.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TimeFloat/TimeFloat.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TimeFloat/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Release;
+		};
+		0DEC91CBDF827967DA9C7CB5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2C94172D67DA116C7BB32C13 /* Shared.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = TimeFloatWidget/TimeFloatWidget.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TimeFloatWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(WIDGET_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Debug;
+		};
+		BB673DA82B092F3A520BDC9C /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2C94172D67DA116C7BB32C13 /* Shared.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = TimeFloatWidget/TimeFloatWidget.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TimeFloatWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(WIDGET_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		EF518AB9E379FA8088ED7FA6 /* Build configuration list for Project */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				73BFC4993D558C2844970A56 /* Debug */,
+				3C5BC6FE1E438E679FB7F74F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8A4C137FDF67CE32F42E0D24 /* Build configuration list for App */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC982C4F58FE5F6D2B2680C2 /* Debug */,
+				06B6A15813AE62FDCFE74422 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4B6BE2DA7EACB4131BF9096D /* Build configuration list for Widget */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0DEC91CBDF827967DA9C7CB5 /* Debug */,
+				BB673DA82B092F3A520BDC9C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin PBXNativeTarget section */
+		29C7B681C8D62CBAC94D51C0 /* TimeFloat */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8A4C137FDF67CE32F42E0D24 /* Build configuration list for App */;
+			buildPhases = (
+				7FF8C9FC6B7E2F79F2A9323E /* App Sources */,
+				2D3446C63F9EEB9172CAE05B /* App Frameworks */,
+				ACA16EC71E4125BC7D8202DD /* App Resources */,
+				F0AB04EE052351C80F3286E9 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A4C80477431259D93FE11E57 /* PBXTargetDependency */,
+			);
+			name = TimeFloat;
+			productName = TimeFloat;
+			productReference = B6CDB6E5D160E013280D3C68 /* TimeFloat.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A5A0AA9F4FB5BC8D9254438A /* TimeFloatWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4B6BE2DA7EACB4131BF9096D /* Build configuration list for Widget */;
+			buildPhases = (
+				C370E812D956C10A8A780229 /* Widget Sources */,
+				23120BCE61A9E306110DC024 /* Widget Frameworks */,
+				8526AB402AA07EF298DB485F /* Widget Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TimeFloatWidget;
+			productName = TimeFloatWidget;
+			productReference = 4C47665D1BA4105DF9684DC4 /* TimeFloatWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		98F54143AB4E86B28C3AFEE0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					29C7B681C8D62CBAC94D51C0 = { CreatedOnToolsVersion = 16.0; };
+					A5A0AA9F4FB5BC8D9254438A = { CreatedOnToolsVersion = 16.0; };
+				};
+			};
+			buildConfigurationList = EF518AB9E379FA8088ED7FA6 /* Build configuration list for Project */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = "zh-Hans";
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = A92C54CDD34F93AD528C20E1 /* root */;
+			productRefGroup = 00C45FD35CB0F9C5F764F070 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				29C7B681C8D62CBAC94D51C0 /* TimeFloat */,
+				A5A0AA9F4FB5BC8D9254438A /* TimeFloatWidget */,
+			);
+		};
+/* End PBXProject section */
+	};
+	rootObject = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+}

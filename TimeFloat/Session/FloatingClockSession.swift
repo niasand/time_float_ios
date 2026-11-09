@@ -1,0 +1,516 @@
+import ActivityKit
+import AVFoundation
+import Combine
+import MediaPlayer
+import UIKit
+import WidgetKit
+
+@MainActor
+final class FloatingClockSession: NSObject, ObservableObject {
+    @Published var settings = ClockSettings()
+    @Published var sync = SyncRecord()
+    @Published var isEnabled = false
+    @Published var isPipActive = false
+    @Published var statusText = "悬浮窗已关闭"
+    @Published var syncStatus = "尚未对时"
+    @Published var isSyncing = false
+    @Published var layout = ClockLayout(
+        size: CGSize(width: 180, height: 88),
+        dateFrame: .zero,
+        timeFrame: .zero,
+        chips: []
+    )
+    @Published var origin = CGPoint.zero
+    @Published var viewport = CGSize.zero
+    @Published var srtLines: [String] = []
+    @Published var srtCount = 0
+    @Published var banner: String?
+    @Published var appGroupReady = true
+
+    private var storedOrigin = CGPoint(x: -1, y: -1)
+    private let audio = SilentAudioEngine()
+    private var host: PipHostView?
+    private var renderTimer: Timer?
+    private var syncTimer: Timer?
+    private var bootstrapped = false
+    private var ignoreDismiss = false
+    private var commandsInstalled = false
+    private var lastActivitySecond = -1
+    private var darwin: DarwinObserver?
+
+    func bootstrap() {
+        guard !bootstrapped else { return }
+        bootstrapped = true
+        appGroupReady = AppIdentity.usesAppGroup
+        settings = ClockPreferences.loadSettings()
+        sync = ClockPreferences.loadSync()
+        refreshSyncLabel()
+        let saved = ClockPreferences.loadPosition()
+        storedOrigin = CGPoint(x: saved.x, y: saved.y)
+        isEnabled = ClockPreferences.isEnabled()
+        recomputeLayout()
+        reloadSRT()
+        installRemoteCommands()
+        darwin = DarwinObserver { [weak self] in
+            Task { @MainActor in
+                self?.reloadFromExternal()
+            }
+        }
+        syncTimer = Timer(timeInterval: 600, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await self?.refreshSync()
+            }
+        }
+        if let syncTimer {
+            RunLoop.main.add(syncTimer, forMode: .common)
+        }
+        Task { await refreshSync() }
+        if isEnabled {
+            turnOn()
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    func updateViewport(_ size: CGSize) {
+        guard size.width > 1, size.height > 1 else { return }
+        viewport = size
+        placeOrigin()
+    }
+
+    func move(to point: CGPoint) {
+        let clamped = clamp(point)
+        origin = clamped
+        storedOrigin = clamped
+    }
+
+    func finishMove() {
+        ClockPreferences.savePosition(x: origin.x, y: origin.y)
+    }
+
+    func resetPosition() {
+        storedOrigin = CGPoint(x: -1, y: -1)
+        ClockPreferences.savePosition(x: -1, y: -1)
+        placeOrigin()
+    }
+
+    func setEnabled(_ on: Bool) {
+        if on { turnOn() } else { turnOff() }
+    }
+
+    func sceneBecameActive() {
+        reloadFromExternal()
+        DocumentsMirror.sync()
+        if let at = sync.at, Date().timeIntervalSince(at) < 600 { return }
+        Task { await refreshSync() }
+    }
+
+    func sceneWentBackground() {
+        guard isEnabled else { return }
+        host?.startPictureInPicture()
+    }
+
+    func updateSettings(_ body: (inout ClockSettings) -> Void) {
+        let previous = settings
+        body(&settings)
+        settings.alphaPercent = min(ClockSettings.maxAlpha, max(ClockSettings.minAlpha, settings.alphaPercent))
+        settings.fontSize = min(ClockSettings.maxFont, max(ClockSettings.minFont, settings.fontSize))
+        settings.captions = CaptionRules.sanitized(settings.captions)
+        if !settings.captions.indices.contains(settings.armedIndex) {
+            settings.armedIndex = 0
+        }
+        ClockPreferences.save(settings)
+        if previous.mixWithOtherAudio != settings.mixWithOtherAudio {
+            audio.mixWithOthers = settings.mixWithOtherAudio
+            if isEnabled { audio.restartIfNeeded() }
+        }
+        if isEnabled {
+            if previous.showMilliseconds != settings.showMilliseconds {
+                restartRenderTimer()
+            }
+            renderFrame()
+            updateActivity()
+        }
+        applyIdleTimer()
+        refreshSyncLabel()
+        recomputeLayout()
+        placeOrigin()
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    func addCaption(_ raw: String) {
+        switch CaptionRules.adding(raw, to: settings.captions) {
+        case .success(let list):
+            updateSettings { $0.captions = list }
+        case .failure(let error):
+            showBanner(error.message)
+        }
+    }
+
+    func deleteCaption(_ caption: String) {
+        updateSettings { settings in
+            settings.captions.removeAll { $0 == caption }
+        }
+    }
+
+    func arm(_ caption: String) {
+        guard let index = settings.captions.firstIndex(of: caption) else { return }
+        updateSettings { $0.armedIndex = index }
+    }
+
+    func logCaption(_ caption: String) {
+        if let error = CaptionLogger.log(caption: caption) {
+            showBanner(error)
+            return
+        }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        showBanner("已记录 \(caption)")
+        reloadFromExternal()
+    }
+
+    func refreshSync() async {
+        guard !isSyncing else { return }
+        isSyncing = true
+        syncStatus = "正在对时…"
+        let result = await NetworkTimeSync.sync()
+        isSyncing = false
+        switch result {
+        case .success(let sample):
+            sync = SyncRecord(offset: sample.offset, delay: sample.delay, source: sample.source, at: Date())
+            ClockPreferences.saveSync(sync)
+            refreshSyncLabel()
+            if isEnabled { updateActivity() }
+            WidgetCenter.shared.reloadAllTimelines()
+        case .failure:
+            syncStatus = sync.hasValue ? "对时失败，沿用上次结果" : "对时失败，当前显示设备时间"
+        }
+    }
+
+    func clearSRT() {
+        try? SrtLog.clear()
+        DocumentsMirror.sync()
+        reloadSRT()
+        showBanner("已清空记录")
+    }
+
+    func syncDocuments() {
+        DocumentsMirror.sync()
+    }
+
+    func attach(host: PipHostView) {
+        guard self.host !== host else { return }
+        self.host = host
+        host.onActiveChange = { [weak self] active in
+            Task { @MainActor in self?.isPipActive = active }
+        }
+        host.onDismissed = { [weak self] in
+            Task { @MainActor in
+                guard let self, !self.ignoreDismiss, self.isEnabled else { return }
+                self.turnOff()
+            }
+        }
+        host.onFailed = { [weak self] message in
+            Task { @MainActor in
+                self?.statusText = message
+            }
+        }
+        renderFrame()
+    }
+
+    func renderFrame() {
+        let now = Date()
+        let highlighted = ClockPreferences.currentHighlight(now: now)
+        let corrected = settings.corrected(now, offset: sync.offset)
+        let dateText = ClockFaceText.dateLine(corrected)
+        let timeText = ClockFaceText.timeLine(corrected, milliseconds: settings.showMilliseconds)
+        let scale = max(2, UIScreen.main.scale)
+        let (image, nextLayout) = ClockDrawing.image(
+            settings: settings,
+            dateText: dateText,
+            timeText: timeText,
+            highlighted: highlighted,
+            scale: scale
+        )
+        if nextLayout != layout {
+            layout = nextLayout
+            placeOrigin()
+        }
+        host?.show(image)
+        let second = Int(corrected.timeIntervalSince1970)
+        if second != lastActivitySecond {
+            lastActivitySecond = second
+            updateActivity(now: now)
+        }
+    }
+
+    private func turnOn() {
+        isEnabled = true
+        ClockPreferences.setEnabled(true)
+        audio.mixWithOthers = settings.mixWithOtherAudio
+        do {
+            try audio.start()
+            statusText = AVPictureInPictureController.isPictureInPictureSupported()
+                ? "悬浮窗运行中。离开此页后会浮在其他 App 上。"
+                : "已打开。这台设备不能画中画，时钟只显示在本页。"
+        } catch {
+            statusText = "保活音频没能启动。留在本页可以看时钟，离开后可能停住。"
+        }
+        applyIdleTimer()
+        updateNowPlaying()
+        restartRenderTimer()
+        renderFrame()
+        startActivity()
+        startPipSoon()
+    }
+
+    /// The host view is created by SwiftUI on the next layout pass, so PiP has to wait until it exists.
+    private func startPipSoon(attempt: Int = 0) {
+        guard isEnabled else { return }
+        if let host, host.window != nil {
+            host.startPictureInPicture()
+            return
+        }
+        guard attempt < 20 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.startPipSoon(attempt: attempt + 1)
+        }
+    }
+
+    private func turnOff() {
+        ignoreDismiss = true
+        isEnabled = false
+        isPipActive = false
+        ClockPreferences.setEnabled(false)
+        renderTimer?.invalidate()
+        renderTimer = nil
+        host?.stopPictureInPicture()
+        host = nil
+        audio.stop()
+        applyIdleTimer()
+        updateNowPlaying()
+        endActivities()
+        statusText = "悬浮窗已关闭"
+        WidgetCenter.shared.reloadAllTimelines()
+        DispatchQueue.main.async { [weak self] in
+            self?.ignoreDismiss = false
+        }
+    }
+
+    private func reloadFromExternal() {
+        let shouldRun = ClockPreferences.isEnabled()
+        settings = ClockPreferences.loadSettings()
+        sync = ClockPreferences.loadSync()
+        refreshSyncLabel()
+        reloadSRT()
+        DocumentsMirror.sync()
+        recomputeLayout()
+        WidgetCenter.shared.reloadAllTimelines()
+        if isEnabled && !shouldRun {
+            turnOff()
+        } else if isEnabled {
+            renderFrame()
+            updateActivity()
+        }
+    }
+
+    private func reloadSRT() {
+        srtLines = SrtLog.tail(maxLines: 30)
+        srtCount = SrtLog.lineCount()
+    }
+
+    private func restartRenderTimer() {
+        renderTimer?.invalidate()
+        let timer = Timer(timeInterval: frameInterval, target: self, selector: #selector(renderTick), userInfo: nil, repeats: true)
+        RunLoop.main.add(timer, forMode: .common)
+        renderTimer = timer
+    }
+
+    @objc private func renderTick() {
+        renderFrame()
+    }
+
+    private var frameInterval: TimeInterval {
+        settings.showMilliseconds ? 1.0 / 30.0 : 0.1
+    }
+
+    private func recomputeLayout() {
+        let corrected = settings.corrected(Date(), offset: sync.offset)
+        let next = ClockDrawing.layout(
+            settings: settings,
+            dateText: ClockFaceText.dateLine(corrected),
+            timeText: ClockFaceText.timeLine(corrected, milliseconds: settings.showMilliseconds),
+            highlighted: ClockPreferences.currentHighlight()
+        )
+        if next != layout { layout = next }
+    }
+
+    private func placeOrigin() {
+        guard viewport.width > 1 else { return }
+        if storedOrigin.x < 0 || storedOrigin.y < 0 {
+            origin = clamp(CGPoint(
+                x: (viewport.width - layout.size.width) / 2,
+                y: viewport.height * 0.06
+            ))
+            return
+        }
+        origin = clamp(storedOrigin)
+    }
+
+    private func clamp(_ point: CGPoint) -> CGPoint {
+        guard viewport.width > 1 else { return point }
+        let maxX = max(0, viewport.width - layout.size.width)
+        let maxY = max(0, viewport.height - layout.size.height)
+        return CGPoint(
+            x: min(max(0, point.x), maxX),
+            y: min(max(0, point.y), maxY)
+        )
+    }
+
+    private func applyIdleTimer() {
+        UIApplication.shared.isIdleTimerDisabled = isEnabled && settings.keepAwake
+    }
+
+    private func startActivity() {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        let state = ClockActivityAttributes.currentState()
+        let content = ActivityContent(state: state, staleDate: nil)
+        if let existing = Activity<ClockActivityAttributes>.activities.first {
+            Task { await existing.update(content) }
+            return
+        }
+        let attributes = ClockActivityAttributes(title: "悬浮时钟")
+        activityRequest(attributes: attributes, content: content)
+    }
+
+    private func activityRequest(attributes: ClockActivityAttributes, content: ActivityContent<ClockActivityAttributes.ContentState>) {
+        do {
+            _ = try Activity.request(attributes: attributes, content: content, pushType: nil)
+        } catch {
+            // PiP still works when Live Activities are disabled for this app.
+        }
+    }
+
+    private func updateActivity(now: Date = Date()) {
+        guard isEnabled else { return }
+        let content = ActivityContent(state: ClockActivityAttributes.currentState(now: now), staleDate: nil)
+        for activity in Activity<ClockActivityAttributes>.activities {
+            Task { await activity.update(content) }
+        }
+    }
+
+    private func endActivities() {
+        for activity in Activity<ClockActivityAttributes>.activities {
+            Task { await activity.end(nil, dismissalPolicy: .immediate) }
+        }
+    }
+
+    private func refreshSyncLabel() {
+        guard sync.hasValue else {
+            syncStatus = "尚未对时"
+            return
+        }
+        let ms = Int((sync.offset * 1000).rounded())
+        let rtt = Int((sync.delay * 1000).rounded())
+        let applied = settings.useNetworkTime ? "已用于时钟" : "未应用到时钟"
+        let direction: String
+        if abs(ms) < 5 {
+            direction = "与网络时间基本一致（\(ms) ms）"
+        } else if ms > 0 {
+            direction = "设备慢 \(ms) ms"
+        } else {
+            direction = "设备快 \(-ms) ms"
+        }
+        syncStatus = "\(sync.source) · \(direction) · 往返 \(rtt) ms · \(applied)"
+    }
+
+    private func showBanner(_ text: String) {
+        banner = text
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_200_000_000)
+            if self?.banner == text { self?.banner = nil }
+        }
+    }
+
+    private func installRemoteCommands() {
+        guard !commandsInstalled else { return }
+        commandsInstalled = true
+        let center = MPRemoteCommandCenter.shared()
+        center.playCommand.isEnabled = false
+        center.nextTrackCommand.isEnabled = false
+        center.previousTrackCommand.isEnabled = false
+        center.stopCommand.isEnabled = true
+        center.pauseCommand.isEnabled = true
+        center.stopCommand.addTarget { [weak self] _ in
+            Task { @MainActor in self?.setEnabled(false) }
+            return .success
+        }
+        center.pauseCommand.addTarget { [weak self] _ in
+            Task { @MainActor in self?.setEnabled(false) }
+            return .success
+        }
+    }
+
+    private func updateNowPlaying() {
+        if isEnabled {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = [
+                MPMediaItemPropertyTitle: "悬浮时钟",
+                MPMediaItemPropertyArtist: "TimeFloat",
+                MPNowPlayingInfoPropertyIsLiveStream: true,
+                MPNowPlayingInfoPropertyPlaybackRate: 1.0
+            ]
+        } else {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        }
+    }
+}
+
+enum DocumentsMirror {
+    static var documentsSRT: URL {
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(AppIdentity.srtDirectoryName, isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.appendingPathComponent(AppIdentity.srtFileName)
+    }
+
+    static func sync() {
+        let source = AppIdentity.srtURL.standardizedFileURL
+        let destination = documentsSRT.standardizedFileURL
+        if source == destination { return }
+        if FileManager.default.fileExists(atPath: source.path) {
+            try? FileManager.default.removeItem(at: destination)
+            try? FileManager.default.copyItem(at: source, to: destination)
+        } else if FileManager.default.fileExists(atPath: destination.path) {
+            try? FileManager.default.removeItem(at: destination)
+        }
+    }
+}
+
+final class DarwinObserver {
+    private let handler: () -> Void
+
+    init(handler: @escaping () -> Void) {
+        self.handler = handler
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            Unmanaged.passUnretained(self).toOpaque(),
+            { _, observer, _, _, _ in
+                guard let observer else { return }
+                let object = Unmanaged<DarwinObserver>.fromOpaque(observer).takeUnretainedValue()
+                DispatchQueue.main.async {
+                    object.handler()
+                }
+            },
+            AppIdentity.darwinEventName as CFString,
+            nil,
+            .deliverImmediately
+        )
+    }
+
+    deinit {
+        CFNotificationCenterRemoveObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            Unmanaged.passUnretained(self).toOpaque(),
+            CFNotificationName(AppIdentity.darwinEventName as CFString),
+            nil
+        )
+    }
+}
