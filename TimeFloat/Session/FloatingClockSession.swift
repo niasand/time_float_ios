@@ -257,8 +257,9 @@ final class FloatingClockSession: NSObject, ObservableObject {
             }
         }
         host.onDismissed = { [weak self] in
-            guard let self else { return }
-            let token = self.runToken
+            // Picture in Picture calls this on the main thread. Read the token there, then hop
+            // back onto the actor so a later turn-on is not undone by this close.
+            let token = MainActor.assumeIsolated { self?.runToken ?? -1 }
             Task { @MainActor in
                 guard let self, self.runToken == token else { return }
                 guard !self.ignoreDismiss, self.isEnabled, !self.userStopped else { return }

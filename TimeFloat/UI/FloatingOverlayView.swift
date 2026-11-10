@@ -1,3 +1,4 @@
+import SwiftUI
 import UIKit
 
 /// Full-screen clear view. Only the clock card takes touches, and the settings switch is
@@ -38,8 +39,9 @@ final class FloatingOverlayView: UIView, UIGestureRecognizerDelegate {
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        guard point(inside: point, with: event) else { return nil }
-        let local = convert(point, to: card)
+        // `point` is the argument. Calling it without `self` looks up that CGPoint, not the method.
+        guard self.point(inside: point, with: event) else { return nil }
+        let local = self.convert(point, to: card)
         return card.hitTest(local, with: event) ?? card
     }
 
@@ -132,13 +134,13 @@ final class WindowFrameProbeView: UIView {
 struct WindowFrameProbe: UIViewRepresentable {
     var onFrame: (CGRect) -> Void
 
-    func makeUIView(context: Context) -> WindowFrameProbeView {
+    func makeUIView(context: UIViewRepresentableContext<WindowFrameProbe>) -> WindowFrameProbeView {
         let view = WindowFrameProbeView()
         view.onFrame = onFrame
         return view
     }
 
-    func updateUIView(_ uiView: WindowFrameProbeView, context: Context) {
+    func updateUIView(_ uiView: WindowFrameProbeView, context: UIViewRepresentableContext<WindowFrameProbe>) {
         uiView.onFrame = onFrame
         uiView.report()
     }
