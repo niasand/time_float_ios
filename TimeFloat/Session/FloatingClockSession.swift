@@ -40,6 +40,8 @@ final class FloatingClockSession: NSObject, ObservableObject {
     private var commandsInstalled = false
     private var lastActivitySecond = -1
     private var lastRenderKey = ""
+    private var lastClockImage: UIImage?
+    private var finishingShotID: String?
     private var sceneIsActive = true
     private var restoreAttempts = 0
     private var userStopped = false
@@ -178,22 +180,13 @@ final class FloatingClockSession: NSObject, ObservableObject {
     }
 
     func logCaption(_ caption: String) {
-        let shot = windowShotIfNeeded(caption: caption)
-        if let error = CaptionLogger.log(caption: caption, screenshotFilename: shot) {
+        if let error = CaptionLogger.log(caption: caption) {
             showBanner(error)
             return
         }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        showBanner(shot == nil ? "已记录 \(caption)" : "已记录 \(caption)，并保存截图")
-        PhotoLibrarySaver.exportPendingIfNeeded()
-        reloadFromExternal()
-    }
-
-    private func windowShotIfNeeded(caption: String) -> String? {
-        guard settings.screenshotOnCaption, !ScreenFrameStore.latestIsFresh() else { return nil }
-        guard sceneIsActive else { return nil }
-        let stamped = settings.corrected(Date(), offset: sync.offset)
-        return WindowSnapshot.save(caption: caption, date: stamped)
+        showBanner("已记录 \(caption)")
+        Task { await finishPendingShot() }
     }
 
     func refreshSync() async {
@@ -286,8 +279,11 @@ final class FloatingClockSession: NSObject, ObservableObject {
             layout = nextLayout
             placeOrigin()
         }
+        lastClockImage = image
         host?.enqueuePip(image)
         host?.showCard(image)
+        host?.setChips(nextLayout.chips)
+        host?.layoutIfNeeded()
     }
 
     private func turnOn() {
@@ -334,6 +330,76 @@ final class FloatingClockSession: NSObject, ObservableObject {
         }
     }
 
+    /// Redraws the green highlight, then saves a screenshot that includes it.
+    private func finishPendingShot() async {
+        guard let pending = CaptionLogger.Pending.load(), finishingShotID != pending.id else { return }
+        finishingShotID = pending.id
+        guard ClockPreferences.loadSettings().screenshotOnCaption else {
+            try? TextLog.append(
+                caption: pending.caption,
+                at: pending.stamped,
+                milliseconds: pending.milliseconds,
+                screenshot: nil
+            )
+            CaptionLogger.Pending.clear()
+            DocumentsMirror.sync()
+            finishingShotID = nil
+            return
+        }
+
+        lastRenderKey = ""
+        renderFrame()
+        host?.layoutIfNeeded()
+        let renderedAt = Date()
+        AppIdentity.sharedDefaults.set(renderedAt.timeIntervalSince1970, forKey: "screenshot_after")
+        AppIdentity.sharedDefaults.synchronize()
+
+        var filename: String?
+        if ScreenFrameStore.broadcastIsRunning() {
+            // Keep the newest frame written after the highlight was pushed, up to about 1s.
+            if await ScreenFrameStore.waitForFrame(after: renderedAt.addingTimeInterval(0.2), timeout: 1) != nil {
+                filename = ScreenFrameStore.adoptLatest(
+                    caption: pending.caption,
+                    date: pending.stamped,
+                    enabled: true,
+                    now: Date()
+                )
+            }
+        }
+        if filename == nil, sceneIsActive, !hidesInAppClock {
+            filename = WindowSnapshot.save(
+                caption: pending.caption,
+                date: pending.stamped,
+                afterScreenUpdates: true
+            )
+        }
+        if filename == nil, let clock = lastClockImage {
+            filename = WindowSnapshot.compositeHighlightedClock(
+                clock,
+                caption: pending.caption,
+                date: pending.stamped
+            )
+        }
+
+        try? TextLog.append(
+            caption: pending.caption,
+            at: pending.stamped,
+            milliseconds: pending.milliseconds,
+            screenshot: filename
+        )
+        if let filename {
+            AppIdentity.sharedDefaults.set(filename, forKey: "last_screenshot_name")
+        }
+        CaptionLogger.Pending.clear()
+        AppIdentity.sharedDefaults.synchronize()
+        DocumentsMirror.sync()
+        PhotoLibrarySaver.exportPendingIfNeeded()
+        if let filename {
+            showBanner("已保存截图 \(filename)")
+        }
+        finishingShotID = nil
+    }
+
     private func scheduleRestore() {
         guard isEnabled, !userStopped, !sceneIsActive else { return }
         guard host?.isPictureInPictureActive != true else { return }
@@ -357,6 +423,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
         DocumentsMirror.sync()
         PhotoLibrarySaver.exportPendingIfNeeded()
         recomputeLayout()
+        Task { await finishPendingShot() }
         WidgetCenter.shared.reloadAllTimelines()
         if isEnabled && !shouldRun {
             turnOff()

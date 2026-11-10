@@ -6,9 +6,35 @@ enum ScreenFrameStore {
     static let freshInterval: TimeInterval = 2
 
     static func latestIsFresh(now: Date = Date()) -> Bool {
-        guard let values = try? AppIdentity.latestScreenURL.resourceValues(forKeys: [.contentModificationDateKey]),
-              let modified = values.contentModificationDate else { return false }
+        guard let modified = modificationDate() else { return false }
         return now.timeIntervalSince(modified) <= freshInterval
+    }
+
+    static func modificationDate() -> Date? {
+        let url = AppIdentity.latestScreenURL
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let values = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+        return values?.contentModificationDate
+    }
+
+    /// True when the broadcast extension has written a frame recently.
+    static func broadcastIsRunning(now: Date = Date()) -> Bool {
+        guard let modified = modificationDate() else { return false }
+        return now.timeIntervalSince(modified) < 3
+    }
+
+    /// Waits until `latest_screen.jpg` is newer than `after`, or the timeout elapses.
+    /// Returns the newest modification date seen after the threshold, if any.
+    static func waitForFrame(after: Date, timeout: TimeInterval) async -> Date? {
+        let deadline = Date().addingTimeInterval(timeout)
+        var matched: Date?
+        while Date() < deadline {
+            if let modified = modificationDate(), modified > after {
+                matched = modified
+            }
+            try? await Task.sleep(nanoseconds: 40_000_000)
+        }
+        return matched
     }
 
     /// Copies the broadcast frame into Screenshots/ and returns the file name, or nil.
