@@ -36,6 +36,8 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
         imageView.contentMode = .scaleToFill
         imageView.layer.cornerRadius = 14
         imageView.layer.masksToBounds = true
+        imageView.isOpaque = false
+        imageView.backgroundColor = .clear
         imageView.isUserInteractionEnabled = false
         addSubview(imageView)
 
@@ -70,7 +72,10 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
         imageView.image = image
     }
 
-    func enqueuePip(_ image: UIImage) {
+    func enqueuePip(_ image: UIImage, opacity: CGFloat) {
+        // PiP often ignores per-pixel alpha, so also fade the sample-buffer layer itself.
+        let clamped = Float(min(1, max(0.05, opacity)))
+        displayLayer.opacity = clamped
         let when = timebase.map { CMTimebaseGetTime($0) } ?? CMClockGetTime(CMClockGetHostTimeClock())
         guard let buffer = SampleBufferFactory.make(from: image, presentationTime: when) else { return }
         if displayLayer.status == .failed {

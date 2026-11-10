@@ -107,15 +107,16 @@ enum ClockDrawing {
             : settings
         let layout = layout(settings: settings, dateText: dateText, timeText: timeText, highlighted: highlighted)
         let base = RGB.from(hex: settings.colorHex)
-        let blended = base.blendedOverBlack(alpha: Double(settings.alphaPercent) / 100)
-        let background = uiColor(blended)
+        let backgroundAlpha = CGFloat(settings.alphaPercent) / 100
+        let background = uiColor(base, alpha: backgroundAlpha)
         let textColor: UIColor = base.prefersDarkText ? .black : .white
         let chipPoint = max(9, CGFloat(settings.fontSize) * 0.5)
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale
-        format.opaque = true
+        format.opaque = false
         let renderer = UIGraphicsImageRenderer(size: layout.size, format: format)
         let image = renderer.image { context in
+            context.cgContext.clear(CGRect(origin: .zero, size: layout.size))
             background.setFill()
             context.fill(CGRect(origin: .zero, size: layout.size))
 
@@ -176,7 +177,7 @@ enum ClockDrawing {
         (text as NSString).draw(in: origin, withAttributes: attributes)
     }
 
-    private static func uiColor(_ rgb: RGB) -> UIColor {
-        UIColor(red: rgb.r, green: rgb.g, blue: rgb.b, alpha: 1)
+    private static func uiColor(_ rgb: RGB, alpha: CGFloat = 1) -> UIColor {
+        UIColor(red: rgb.r, green: rgb.g, blue: rgb.b, alpha: alpha)
     }
 }

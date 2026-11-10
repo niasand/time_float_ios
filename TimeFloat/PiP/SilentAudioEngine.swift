@@ -9,6 +9,7 @@ final class SilentAudioEngine {
     private var interruptionObserver: NSObjectProtocol?
     private(set) var isRunning = false
     var mixWithOthers = true
+    var onInterrupted: (() -> Void)?
     var onRecovered: (() -> Void)?
     private var routeObserver: NSObjectProtocol?
     private var resetObserver: NSObjectProtocol?
@@ -78,7 +79,9 @@ final class SilentAudioEngine {
             guard let self else { return }
             let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
             let type = raw.flatMap { AVAudioSession.InterruptionType(rawValue: $0) }
-            if type == .ended {
+            if type == .began {
+                self.onInterrupted?()
+            } else if type == .ended {
                 self.restartIfNeeded()
                 self.onRecovered?()
             }

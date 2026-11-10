@@ -43,6 +43,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
     private var lastClockImage: UIImage?
     private var finishingShotID: String?
     private var sceneIsActive = true
+    private var audioInterrupted = false
     private var restoreAttempts = 0
     private var userStopped = false
     private var darwin: DarwinObserver?
@@ -234,11 +235,19 @@ final class FloatingClockSession: NSObject, ObservableObject {
         host.onDismissed = { [weak self] in
             Task { @MainActor in
                 guard let self, !self.ignoreDismiss, self.isEnabled, !self.userStopped else { return }
-                self.scheduleRestore()
+                // The system close button. A phone-call interruption sets audioInterrupted first and must not turn the clock off.
+                if self.audioInterrupted { return }
+                self.turnOff()
             }
         }
+        audio.onInterrupted = { [weak self] in
+            Task { @MainActor in self?.audioInterrupted = true }
+        }
         audio.onRecovered = { [weak self] in
-            Task { @MainActor in self?.scheduleRestore() }
+            Task { @MainActor in
+                self?.audioInterrupted = false
+                self?.scheduleRestore()
+            }
         }
         host.onFailed = { [weak self] message in
             Task { @MainActor in
@@ -280,7 +289,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
             placeOrigin()
         }
         lastClockImage = image
-        host?.enqueuePip(image)
+        host?.enqueuePip(image, opacity: CGFloat(settings.alphaPercent) / 100)
         host?.showCard(image)
         host?.setChips(nextLayout.chips)
         host?.layoutIfNeeded()

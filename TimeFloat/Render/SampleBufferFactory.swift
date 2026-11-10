@@ -31,6 +31,8 @@ enum SampleBufferFactory {
 
         // UIGraphicsImageRenderer bitmaps are already top-row-first, which is what
         // AVSampleBufferDisplayLayer shows. Flipping Y here turned the clock upside down.
+        // Clear first so the background alpha in the bitmap is real transparency, not leftover opaque pixels.
+        context.clear(CGRect(x: 0, y: 0, width: width, height: height))
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
         var format: CMVideoFormatDescription?

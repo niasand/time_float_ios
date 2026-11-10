@@ -22,18 +22,55 @@ final class FloatingOverlayView: UIView, UIGestureRecognizerDelegate {
         card.layer.shadowOffset = CGSize(width: 0, height: 5)
         pan.addTarget(self, action: #selector(handlePan(_:)))
         pan.delegate = self
+        pan.cancelsTouchesInView = false
         card.addGestureRecognizer(pan)
+    }
+
+    /// Only the clock card is interactive. Everything else falls through to the settings screen.
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        card.frame.contains(point)
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard card.frame.contains(point) else { return nil }
+        let local = convert(point, to: card)
+        return card.hitTest(local, with: event) ?? card
     }
 
     required init?(coder: NSCoder) { return nil }
 
-    func place(origin: CGPoint, size: CGSize) {
+    private var desiredFrame = CGRect(x: 0, y: 40, width: 180, height: 88)
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
         guard !isDragging else { return }
-        card.frame = CGRect(origin: origin, size: size)
+        if card.frame.size == .zero || card.frame != desiredFrame {
+            card.frame = desiredFrame
+        }
+    }
+
+    func place(origin: CGPoint, size: CGSize) {
+        let safe = CGSize(width: max(size.width, 1), height: max(size.height, 1))
+        desiredFrame = CGRect(origin: origin, size: safe)
+        guard !isDragging else { return }
+        card.frame = desiredFrame
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        !(touch.view is UIButton)
+        var view = touch.view
+        while let current = view {
+            if current is UIButton { return false }
+            if current === card { return true }
+            view = current.superview
+        }
+        return false
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        false
     }
 
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
