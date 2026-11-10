@@ -4,13 +4,16 @@ struct RootView: View {
     @EnvironmentObject private var session: FloatingClockSession
     @Environment(\.scenePhase) private var scenePhase
     @State private var dragBase: CGPoint?
+    @State private var dragOrigin: CGPoint?
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             SettingsView()
             if session.isEnabled {
                 floatingCard
-                    .offset(x: session.origin.x, y: session.origin.y)
+                    .opacity(session.isPipActive ? 0 : 1)
+                    .allowsHitTesting(!session.isPipActive)
+                    .offset(x: cardOrigin.x, y: cardOrigin.y)
             }
             if let banner = session.banner {
                 VStack {
@@ -41,7 +44,9 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 session.sceneBecameActive()
-            } else if phase == .background {
+            } else if phase == .inactive || phase == .background {
+                // Start while the clock view is still on screen. .background alone is often too late,
+                // and the start guard keeps inactive + background from opening two windows.
                 session.sceneWentBackground()
             }
         }
@@ -68,17 +73,25 @@ struct RootView: View {
             DragGesture(minimumDistance: 12)
                 .onChanged { value in
                     if dragBase == nil { dragBase = session.origin }
-                    session.move(to: CGPoint(
+                    dragOrigin = session.clampedOrigin(CGPoint(
                         x: (dragBase?.x ?? 0) + value.translation.width,
                         y: (dragBase?.y ?? 0) + value.translation.height
                     ))
                 }
                 .onEnded { _ in
+                    if let dragOrigin {
+                        session.move(to: dragOrigin)
+                        session.finishMove()
+                    }
                     dragBase = nil
-                    session.finishMove()
+                    self.dragOrigin = nil
                 }
         )
         .accessibilityLabel("悬浮时钟")
+    }
+
+    private var cardOrigin: CGPoint {
+        dragOrigin ?? session.origin
     }
 }
 

@@ -37,6 +37,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
     private var ignoreDismiss = false
     private var commandsInstalled = false
     private var lastActivitySecond = -1
+    private var lastRenderKey = ""
     private var darwin: DarwinObserver?
 
     func bootstrap() {
@@ -84,6 +85,11 @@ final class FloatingClockSession: NSObject, ObservableObject {
         storedOrigin = clamped
     }
 
+    /// Used while a finger is down so the drag does not publish through the settings screen.
+    func clampedOrigin(_ point: CGPoint) -> CGPoint {
+        clamp(point)
+    }
+
     func finishMove() {
         ClockPreferences.savePosition(x: origin.x, y: origin.y)
     }
@@ -99,6 +105,8 @@ final class FloatingClockSession: NSObject, ObservableObject {
     }
 
     func sceneBecameActive() {
+        // The in-app card is the only window while this screen is visible.
+        host?.stopPictureInPictureKeepingSession()
         reloadFromExternal()
         DocumentsMirror.sync()
         if let at = sync.at, Date().timeIntervalSince(at) < 600 { return }
@@ -215,6 +223,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
             }
         }
         renderFrame()
+        host.preparePictureInPicture()
     }
 
     func renderFrame() {
@@ -223,24 +232,28 @@ final class FloatingClockSession: NSObject, ObservableObject {
         let corrected = settings.corrected(now, offset: sync.offset)
         let dateText = ClockFaceText.dateLine(corrected)
         let timeText = ClockFaceText.timeLine(corrected, milliseconds: settings.showMilliseconds)
-        let scale = max(2, UIScreen.main.scale)
+        let second = Int(corrected.timeIntervalSince1970)
+        if second != lastActivitySecond {
+            lastActivitySecond = second
+            updateActivity(now: now)
+        }
+        // Redraw only when the pixels would change. A 10–30 fps full-buffer upload
+        // on the main thread is what made the PiP window stutter while it was dragged.
+        let key = "\(dateText)\u{1}\(timeText)\u{1}\(highlighted ?? "")\u{1}\(settings.colorHex)\u{1}\(settings.alphaPercent)\u{1}\(settings.fontSize)\u{1}\(settings.showCaptionsInFloat)\u{1}\(settings.captions.joined(separator: "\u{1}"))"
+        if key == lastRenderKey { return }
+        lastRenderKey = key
         let (image, nextLayout) = ClockDrawing.image(
             settings: settings,
             dateText: dateText,
             timeText: timeText,
             highlighted: highlighted,
-            scale: scale
+            scale: 2
         )
         if nextLayout != layout {
             layout = nextLayout
             placeOrigin()
         }
         host?.show(image)
-        let second = Int(corrected.timeIntervalSince1970)
-        if second != lastActivitySecond {
-            lastActivitySecond = second
-            updateActivity(now: now)
-        }
     }
 
     private func turnOn() {
@@ -250,7 +263,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
         do {
             try audio.start()
             statusText = AVPictureInPictureController.isPictureInPictureSupported()
-                ? "悬浮窗运行中。离开此页后会浮在其他 App 上。"
+                ? "已打开。本页只留这一块，离开 App 后它会浮到其他 App 上。"
                 : "已打开。这台设备不能画中画，时钟只显示在本页。"
         } catch {
             statusText = "保活音频没能启动。留在本页可以看时钟，离开后可能停住。"
@@ -258,22 +271,9 @@ final class FloatingClockSession: NSObject, ObservableObject {
         applyIdleTimer()
         updateNowPlaying()
         restartRenderTimer()
+        lastRenderKey = ""
         renderFrame()
         startActivity()
-        startPipSoon()
-    }
-
-    /// The host view is created by SwiftUI on the next layout pass, so PiP has to wait until it exists.
-    private func startPipSoon(attempt: Int = 0) {
-        guard isEnabled else { return }
-        if let host, host.window != nil {
-            host.startPictureInPicture()
-            return
-        }
-        guard attempt < 20 else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            self?.startPipSoon(attempt: attempt + 1)
-        }
     }
 
     private func turnOff() {
@@ -285,6 +285,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
         renderTimer = nil
         host?.stopPictureInPicture()
         host = nil
+        lastRenderKey = ""
         audio.stop()
         applyIdleTimer()
         updateNowPlaying()
@@ -329,9 +330,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
         renderFrame()
     }
 
-    private var frameInterval: TimeInterval {
-        settings.showMilliseconds ? 1.0 / 30.0 : 0.1
-    }
+    private var frameInterval: TimeInterval { 0.1 }
 
     private func recomputeLayout() {
         let corrected = settings.corrected(Date(), offset: sync.offset)

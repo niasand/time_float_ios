@@ -18,6 +18,9 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
     private var controller: AVPictureInPictureController?
     private var possibleObservation: NSKeyValueObservation?
     private var userIsRestoring = false
+    /// Set when we close PiP ourselves because the in-app card is taking over.
+    private var suppressDismiss = false
+    private var startRequested = false
     private let videoLayerView = UIView()
 
     override init(frame: CGRect) {
@@ -54,6 +57,10 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
         displayLayer.frame = videoLayerView.bounds
     }
 
+    var isPictureInPictureActive: Bool {
+        controller?.isPictureInPictureActive == true
+    }
+
     func show(_ image: UIImage) {
         imageView.image = image
         guard let buffer = SampleBufferFactory.make(from: image) else { return }
@@ -63,24 +70,36 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
         displayLayer.enqueue(buffer)
     }
 
+    /// Create the controller while the app is still on screen, so leaving the app can start one window.
+    func preparePictureInPicture() {
+        guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
+        let controller = ensureController()
+        controller.requiresLinearPlayback = true
+        controller.canStartPictureInPictureAutomaticallyFromInline = false
+    }
+
     func startPictureInPicture() {
-        if controller?.isPictureInPictureActive == true { return }
+        if controller?.isPictureInPictureActive == true || startRequested { return }
         guard AVPictureInPictureController.isPictureInPictureSupported() else {
             onFailed?("这台设备不支持画中画。模拟器通常不支持，请用真机。")
             return
         }
         let controller = ensureController()
         controller.requiresLinearPlayback = true
-        controller.canStartPictureInPictureAutomaticallyFromInline = true
+        // Automatic inline start races with our own start and can open a second window.
+        controller.canStartPictureInPictureAutomaticallyFromInline = false
+        startRequested = true
         if controller.isPictureInPicturePossible {
-            DispatchQueue.main.async { [weak controller] in
+            DispatchQueue.main.async { [weak self, weak controller] in
+                guard let self, self.startRequested else { return }
                 controller?.startPictureInPicture()
             }
         } else {
             possibleObservation = controller.observe(\.isPictureInPicturePossible, options: [.new]) { [weak self] controller, change in
                 guard change.newValue == true else { return }
-                self?.possibleObservation = nil
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.startRequested else { return }
+                    self.possibleObservation = nil
                     controller.startPictureInPicture()
                 }
             }
@@ -89,8 +108,21 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
 
     func stopPictureInPicture() {
         possibleObservation = nil
+        startRequested = false
         if controller?.isPictureInPictureActive == true {
             controller?.stopPictureInPicture()
+        }
+    }
+
+    /// Close the system window, or cancel a start that has not appeared yet,
+    /// without treating it as the user turning the clock off.
+    func stopPictureInPictureKeepingSession() {
+        if controller?.isPictureInPictureActive == true {
+            suppressDismiss = true
+            stopPictureInPicture()
+        } else {
+            possibleObservation = nil
+            startRequested = false
         }
     }
 
@@ -106,13 +138,16 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
     }
 
     func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+        startRequested = false
         onActiveChange?(true)
     }
 
     func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+        startRequested = false
         onActiveChange?(false)
-        if userIsRestoring {
+        if userIsRestoring || suppressDismiss {
             userIsRestoring = false
+            suppressDismiss = false
         } else {
             onDismissed?()
         }
@@ -122,6 +157,7 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
         _ pictureInPictureController: AVPictureInPictureController,
         failedToStartPictureInPictureWithError error: Error
     ) {
+        startRequested = false
         onFailed?(error.localizedDescription)
     }
 

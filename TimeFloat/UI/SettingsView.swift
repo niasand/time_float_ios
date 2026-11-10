@@ -23,7 +23,6 @@ struct SettingsView: View {
                     timeSection
                     captionSection
                     srtSection
-                    helpSection
                 }
                 .padding(16)
             }
@@ -229,16 +228,6 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
             }
-        }
-    }
-
-    private var helpSection: some View {
-        card {
-            Text("和 Android 版的差别")
-                .font(.headline)
-            Text("iOS 不允许 App 自己画一个盖住其他 App 的窗口。这里用系统画中画来浮着：可以拖、可以捏合缩放，位置由系统记住。画中画里的字幕点不到，改用本页按钮、锁屏实时活动、主屏幕小组件、控制中心（iOS 18）或快捷指令。点画中画的回到 App，相当于原版点一下时钟。点画中画的关闭，会关掉悬浮。重启手机后不会自动打开，需要再进一次本 App。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
         }
     }
 
