@@ -29,8 +29,8 @@ enum SampleBufferFactory {
             bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
         ) else { return nil }
 
-        context.translateBy(x: 0, y: CGFloat(height))
-        context.scaleBy(x: 1, y: -1)
+        // UIGraphicsImageRenderer bitmaps are already top-row-first, which is what
+        // AVSampleBufferDisplayLayer shows. Flipping Y here turned the clock upside down.
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
         var format: CMVideoFormatDescription?

@@ -23,6 +23,21 @@ enum ClockDrawing {
     private static let chipPadX: CGFloat = 10
     private static let chipPadY: CGFloat = 4
 
+    /// Largest point size that still fits the clock and every caption inside a PiP-friendly box.
+    static func fittedSettings(_ settings: ClockSettings, dateText: String, timeText: String, highlighted: String?) -> ClockSettings {
+        var tuned = settings
+        let maxWidth: CGFloat = 460
+        let maxHeight: CGFloat = 360
+        while tuned.fontSize > ClockSettings.minFont {
+            let candidate = layout(settings: tuned, dateText: dateText, timeText: timeText, highlighted: highlighted)
+            if candidate.size.width <= maxWidth && candidate.size.height <= maxHeight {
+                break
+            }
+            tuned.fontSize -= 1
+        }
+        return tuned
+    }
+
     static func layout(settings: ClockSettings, dateText: String, timeText: String, highlighted: String?) -> ClockLayout {
         let timeFont = UIFont.monospacedDigitSystemFont(ofSize: CGFloat(settings.fontSize), weight: .bold)
         let dateFont = UIFont.monospacedDigitSystemFont(ofSize: CGFloat(settings.fontSize) * 0.55, weight: .regular)
@@ -84,8 +99,12 @@ enum ClockDrawing {
         dateText: String,
         timeText: String,
         highlighted: String?,
-        scale: CGFloat
+        scale: CGFloat,
+        fitToPiP: Bool = false
     ) -> (UIImage, ClockLayout) {
+        let settings = fitToPiP
+            ? fittedSettings(settings, dateText: dateText, timeText: timeText, highlighted: highlighted)
+            : settings
         let layout = layout(settings: settings, dateText: dateText, timeText: timeText, highlighted: highlighted)
         let base = RGB.from(hex: settings.colorHex)
         let blended = base.blendedOverBlack(alpha: Double(settings.alphaPercent) / 100)
@@ -123,27 +142,6 @@ enum ClockDrawing {
         return (image, layout)
     }
 
-    /// Small wide frame. Its aspect ratio is the PiP window shape, so the system window stays easy to grab.
-    static func pipImage(settings: ClockSettings, dateText: String, timeText: String) -> UIImage {
-        let size = CGSize(width: 320, height: 132)
-        let base = RGB.from(hex: settings.colorHex)
-        let blended = base.blendedOverBlack(alpha: Double(settings.alphaPercent) / 100)
-        let background = uiColor(blended)
-        let textColor: UIColor = base.prefersDarkText ? .black : .white
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 2
-        format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: size, format: format)
-        return renderer.image { context in
-            background.setFill()
-            context.fill(CGRect(origin: .zero, size: size))
-            let dateFont = UIFont.monospacedDigitSystemFont(ofSize: 18, weight: .regular)
-            let timeFont = UIFont.monospacedDigitSystemFont(ofSize: 44, weight: .bold)
-            draw(dateText, in: CGRect(x: 12, y: 18, width: size.width - 24, height: 28), font: dateFont, color: textColor, alignment: .center)
-            draw(timeText, in: CGRect(x: 12, y: 48, width: size.width - 24, height: 64), font: timeFont, color: textColor, alignment: .center)
-        }
-    }
-
     private static func measure(_ text: String, font: UIFont) -> CGSize {
         let bounds = (text as NSString).boundingRect(
             with: CGSize(width: 2000, height: 400),
@@ -157,22 +155,23 @@ enum ClockDrawing {
     private static func draw(_ text: String, in rect: CGRect, font: UIFont, color: UIColor, alignment: NSTextAlignment) {
         let style = NSMutableParagraphStyle()
         style.alignment = alignment
+        style.lineBreakMode = .byClipping
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: color,
             .paragraphStyle: style
         ]
         let bounds = (text as NSString).boundingRect(
-            with: rect.size,
+            with: CGSize(width: rect.width, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             attributes: attributes,
             context: nil
         )
         let origin = CGRect(
             x: rect.minX,
-            y: rect.minY + (rect.height - ceil(bounds.height)) / 2,
+            y: rect.minY + max(0, (rect.height - ceil(bounds.height)) / 2),
             width: rect.width,
-            height: ceil(bounds.height)
+            height: min(rect.height, ceil(bounds.height))
         )
         (text as NSString).draw(in: origin, withAttributes: attributes)
     }

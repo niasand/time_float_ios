@@ -272,20 +272,21 @@ final class FloatingClockSession: NSObject, ObservableObject {
         let key = "\(dateText)\u{1}\(timeText)\u{1}\(highlighted ?? "")\u{1}\(settings.colorHex)\u{1}\(settings.alphaPercent)\u{1}\(settings.fontSize)\u{1}\(settings.showCaptionsInFloat)\u{1}\(settings.captions.joined(separator: "\u{1}"))"
         if key == lastRenderKey { return }
         lastRenderKey = key
-        let pip = ClockDrawing.pipImage(settings: settings, dateText: dateText, timeText: timeText)
-        host?.enqueuePip(pip)
-        if hidesInAppClock { return }
+        // One bitmap for the card and for PiP, sized to the text so nothing is cropped.
+        // PiP uses the same pixels; videoGravity .resizeAspect keeps that aspect ratio.
         let (image, nextLayout) = ClockDrawing.image(
             settings: settings,
             dateText: dateText,
             timeText: timeText,
             highlighted: highlighted,
-            scale: 2
+            scale: 2,
+            fitToPiP: true
         )
         if nextLayout != layout {
             layout = nextLayout
             placeOrigin()
         }
+        host?.enqueuePip(image)
         host?.showCard(image)
     }
 
