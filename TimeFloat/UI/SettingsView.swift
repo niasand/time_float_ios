@@ -67,6 +67,12 @@ struct SettingsView: View {
                 set: { session.setEnabled($0) }
             ))
             .font(.body.weight(.semibold))
+            .background(
+                WindowFrameProbe { frame in
+                    session.noteSwitchFrame(frame)
+                }
+                .allowsHitTesting(false)
+            )
             if session.isPipActive {
                 Label("画中画正在其他 App 上层", systemImage: "pip")
                     .font(.footnote)

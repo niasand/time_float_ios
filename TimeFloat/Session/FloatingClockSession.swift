@@ -46,6 +46,10 @@ final class FloatingClockSession: NSObject, ObservableObject {
     private var audioInterrupted = false
     private var restoreAttempts = 0
     private var userStopped = false
+    private var runToken = 0
+    private var restoreWork: DispatchWorkItem?
+    private weak var overlayView: FloatingOverlayView?
+    var switchFrameInWindow: CGRect = .zero
     private var darwin: DarwinObserver?
 
     func bootstrap() {
@@ -109,7 +113,27 @@ final class FloatingClockSession: NSObject, ObservableObject {
     }
 
     func setEnabled(_ on: Bool) {
-        if on { turnOn() } else { turnOff() }
+        if on {
+            if isEnabled, !userStopped { return }
+            turnOn()
+        } else {
+            if !isEnabled, userStopped { return }
+            turnOff()
+        }
+    }
+
+    func attachOverlay(_ overlay: FloatingOverlayView) {
+        overlayView = overlay
+        overlay.passThroughInWindow = switchFrameInWindow
+    }
+
+    /// The settings switch row, in UIKit window coordinates. Expanded so the thumb is easy to hit.
+    func noteSwitchFrame(_ frame: CGRect) {
+        guard frame.width > 1, frame.height > 1 else { return }
+        let expanded = frame.insetBy(dx: -28, dy: -20)
+        guard expanded != switchFrameInWindow else { return }
+        switchFrameInWindow = expanded
+        overlayView?.passThroughInWindow = expanded
     }
 
     func sceneBecameActive() {
@@ -233,8 +257,11 @@ final class FloatingClockSession: NSObject, ObservableObject {
             }
         }
         host.onDismissed = { [weak self] in
+            guard let self else { return }
+            let token = self.runToken
             Task { @MainActor in
-                guard let self, !self.ignoreDismiss, self.isEnabled, !self.userStopped else { return }
+                guard let self, self.runToken == token else { return }
+                guard !self.ignoreDismiss, self.isEnabled, !self.userStopped else { return }
                 // The system close button. A phone-call interruption sets audioInterrupted first and must not turn the clock off.
                 if self.audioInterrupted { return }
                 self.turnOff()
@@ -296,8 +323,12 @@ final class FloatingClockSession: NSObject, ObservableObject {
     }
 
     private func turnOn() {
+        runToken += 1
         isEnabled = true
         userStopped = false
+        ignoreDismiss = false
+        restoreWork?.cancel()
+        restoreWork = nil
         ClockPreferences.setEnabled(true)
         audio.mixWithOthers = settings.mixWithOtherAudio
         do {
@@ -317,8 +348,11 @@ final class FloatingClockSession: NSObject, ObservableObject {
     }
 
     private func turnOff() {
-        ignoreDismiss = true
+        runToken += 1
         userStopped = true
+        ignoreDismiss = true
+        restoreWork?.cancel()
+        restoreWork = nil
         isEnabled = false
         isPipActive = false
         hidesInAppClock = false
@@ -334,9 +368,6 @@ final class FloatingClockSession: NSObject, ObservableObject {
         endActivities()
         statusText = "悬浮窗已关闭"
         WidgetCenter.shared.reloadAllTimelines()
-        DispatchQueue.main.async { [weak self] in
-            self?.ignoreDismiss = false
-        }
     }
 
     /// Redraws the green highlight, then saves a screenshot that includes it.
@@ -416,11 +447,16 @@ final class FloatingClockSession: NSObject, ObservableObject {
         restoreAttempts += 1
         audio.restartIfNeeded()
         let delay = 0.35 * Double(restoreAttempts)
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            guard let self, self.isEnabled, !self.userStopped, !self.sceneIsActive else { return }
+        let token = runToken
+        restoreWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.runToken == token else { return }
+            guard self.isEnabled, !self.userStopped, !self.sceneIsActive else { return }
             guard self.host?.isPictureInPictureActive != true else { return }
             self.host?.startPictureInPicture()
         }
+        restoreWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     private func reloadFromExternal() {
@@ -474,9 +510,10 @@ final class FloatingClockSession: NSObject, ObservableObject {
     private func placeOrigin() {
         guard viewport.width > 1 else { return }
         if storedOrigin.x < 0 || storedOrigin.y < 0 {
+            // Keep a fresh card off the first settings row, where the on/off switch lives.
             origin = clamp(CGPoint(
-                x: (viewport.width - layout.size.width) / 2,
-                y: viewport.height * 0.06
+                x: viewport.width - layout.size.width - 16,
+                y: viewport.height - layout.size.height - 28
             ))
             return
         }

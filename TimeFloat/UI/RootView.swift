@@ -8,9 +8,9 @@ struct RootView: View {
             SettingsView()
             if session.isEnabled {
                 FloatingOverlayRepresentable(session: session)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(session.hidesInAppClock ? 0 : 1)
                     .allowsHitTesting(!session.hidesInAppClock)
-                    .ignoresSafeArea()
             }
             if let banner = session.banner {
                 VStack {
@@ -65,13 +65,19 @@ struct FloatingOverlayRepresentable: UIViewRepresentable {
             session?.logCaption(caption)
         }
         session.attach(host: view.card)
+        session.attachOverlay(view)
         view.place(origin: session.origin, size: session.layout.size)
         view.card.setChips(session.layout.chips)
         return view
     }
 
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: FloatingOverlayView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? uiView.bounds.width, height: proposal.height ?? uiView.bounds.height)
+    }
+
     func updateUIView(_ uiView: FloatingOverlayView, context: Context) {
         session.attach(host: uiView.card)
+        session.attachOverlay(uiView)
         uiView.clamp = { [weak session] point in
             session?.clampedOrigin(point) ?? point
         }
