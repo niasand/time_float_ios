@@ -21,13 +21,18 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
     /// Set when we close PiP ourselves because the in-app card is taking over.
     private var suppressDismiss = false
     private var startRequested = false
+    private var timebase: CMTimebase?
     private let videoLayerView = UIView()
+    private var chipButtons: [UIButton] = []
+    private var appliedChips: [ChipFrame] = []
+    var onCaptionTap: ((String) -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         isOpaque = false
         backgroundColor = .clear
-        isUserInteractionEnabled = false
+        isUserInteractionEnabled = true
+        installTimebase()
         imageView.contentMode = .scaleToFill
         imageView.layer.cornerRadius = 14
         imageView.layer.masksToBounds = true
@@ -61,21 +66,53 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
         controller?.isPictureInPictureActive == true
     }
 
-    func show(_ image: UIImage) {
+    func showCard(_ image: UIImage) {
         imageView.image = image
-        guard let buffer = SampleBufferFactory.make(from: image) else { return }
+    }
+
+    func enqueuePip(_ image: UIImage) {
+        let when = timebase.map { CMTimebaseGetTime($0) } ?? CMClockGetTime(CMClockGetHostTimeClock())
+        guard let buffer = SampleBufferFactory.make(from: image, presentationTime: when) else { return }
         if displayLayer.status == .failed {
             displayLayer.flush()
         }
         displayLayer.enqueue(buffer)
     }
 
-    /// Create the controller while the app is still on screen, so leaving the app can start one window.
+    func setChips(_ chips: [ChipFrame]) {
+        guard chips != appliedChips else { return }
+        appliedChips = chips
+        chipButtons.forEach { $0.removeFromSuperview() }
+        chipButtons = chips.map { chip in
+            let button = UIButton(type: .custom)
+            button.frame = chip.rect
+            button.accessibilityLabel = chip.caption
+            button.addAction(UIAction { [weak self] _ in
+                self?.onCaptionTap?(chip.caption)
+            }, for: .touchUpInside)
+            addSubview(button)
+            return button
+        }
+    }
+
+    /// Create the controller while the app is still on screen.
+    /// Automatic inline start is the reliable path when the user leaves; the in-app card is hidden then.
     func preparePictureInPicture() {
         guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
         let controller = ensureController()
         controller.requiresLinearPlayback = true
-        controller.canStartPictureInPictureAutomaticallyFromInline = false
+        controller.canStartPictureInPictureAutomaticallyFromInline = true
+    }
+
+    private func installTimebase() {
+        var created: CMTimebase?
+        let clock = CMClockGetHostTimeClock()
+        CMTimebaseCreateWithSourceClock(allocator: kCFAllocatorDefault, sourceClock: clock, timebaseOut: &created)
+        guard let created else { return }
+        CMTimebaseSetTime(created, time: CMClockGetTime(clock))
+        CMTimebaseSetRate(created, rate: 1)
+        displayLayer.controlTimebase = created
+        timebase = created
     }
 
     func startPictureInPicture() {
@@ -86,8 +123,7 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
         }
         let controller = ensureController()
         controller.requiresLinearPlayback = true
-        // Automatic inline start races with our own start and can open a second window.
-        controller.canStartPictureInPictureAutomaticallyFromInline = false
+        controller.canStartPictureInPictureAutomaticallyFromInline = true
         startRequested = true
         if controller.isPictureInPicturePossible {
             DispatchQueue.main.async { [weak self, weak controller] in

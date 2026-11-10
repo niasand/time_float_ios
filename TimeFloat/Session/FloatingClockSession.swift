@@ -27,6 +27,8 @@ final class FloatingClockSession: NSObject, ObservableObject {
     @Published var srtCount = 0
     @Published var banner: String?
     @Published var appGroupReady = true
+    /// True while Picture in Picture should be the only clock the user sees.
+    @Published var hidesInAppClock = false
 
     private var storedOrigin = CGPoint(x: -1, y: -1)
     private let audio = SilentAudioEngine()
@@ -38,6 +40,9 @@ final class FloatingClockSession: NSObject, ObservableObject {
     private var commandsInstalled = false
     private var lastActivitySecond = -1
     private var lastRenderKey = ""
+    private var sceneIsActive = true
+    private var restoreAttempts = 0
+    private var userStopped = false
     private var darwin: DarwinObserver?
 
     func bootstrap() {
@@ -105,16 +110,22 @@ final class FloatingClockSession: NSObject, ObservableObject {
     }
 
     func sceneBecameActive() {
-        // The in-app card is the only window while this screen is visible.
-        host?.stopPictureInPictureKeepingSession()
+        sceneIsActive = true
+        restoreAttempts = 0
+        // Do not stop Picture in Picture here. Closing it on foreground was dismissing the floating clock.
+        hidesInAppClock = host?.isPictureInPictureActive == true
         reloadFromExternal()
         DocumentsMirror.sync()
+        PhotoLibrarySaver.exportPendingIfNeeded()
         if let at = sync.at, Date().timeIntervalSince(at) < 600 { return }
         Task { await refreshSync() }
     }
 
     func sceneWentBackground() {
-        guard isEnabled else { return }
+        sceneIsActive = false
+        guard isEnabled, !userStopped else { return }
+        hidesInAppClock = true
+        restoreAttempts = 0
         host?.startPictureInPicture()
     }
 
@@ -167,13 +178,22 @@ final class FloatingClockSession: NSObject, ObservableObject {
     }
 
     func logCaption(_ caption: String) {
-        if let error = CaptionLogger.log(caption: caption) {
+        let shot = windowShotIfNeeded(caption: caption)
+        if let error = CaptionLogger.log(caption: caption, screenshotFilename: shot) {
             showBanner(error)
             return
         }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        showBanner("已记录 \(caption)")
+        showBanner(shot == nil ? "已记录 \(caption)" : "已记录 \(caption)，并保存截图")
+        PhotoLibrarySaver.exportPendingIfNeeded()
         reloadFromExternal()
+    }
+
+    private func windowShotIfNeeded(caption: String) -> String? {
+        guard settings.screenshotOnCaption, !ScreenFrameStore.latestIsFresh() else { return nil }
+        guard sceneIsActive else { return nil }
+        let stamped = settings.corrected(Date(), offset: sync.offset)
+        return WindowSnapshot.save(caption: caption, date: stamped)
     }
 
     func refreshSync() async {
@@ -196,6 +216,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
 
     func clearSRT() {
         try? SrtLog.clear()
+        try? TextLog.clear()
         DocumentsMirror.sync()
         reloadSRT()
         showBanner("已清空记录")
@@ -209,13 +230,22 @@ final class FloatingClockSession: NSObject, ObservableObject {
         guard self.host !== host else { return }
         self.host = host
         host.onActiveChange = { [weak self] active in
-            Task { @MainActor in self?.isPipActive = active }
+            Task { @MainActor in
+                self?.isPipActive = active
+                if active {
+                    self?.hidesInAppClock = true
+                    self?.restoreAttempts = 0
+                }
+            }
         }
         host.onDismissed = { [weak self] in
             Task { @MainActor in
-                guard let self, !self.ignoreDismiss, self.isEnabled else { return }
-                self.turnOff()
+                guard let self, !self.ignoreDismiss, self.isEnabled, !self.userStopped else { return }
+                self.scheduleRestore()
             }
+        }
+        audio.onRecovered = { [weak self] in
+            Task { @MainActor in self?.scheduleRestore() }
         }
         host.onFailed = { [weak self] message in
             Task { @MainActor in
@@ -242,6 +272,9 @@ final class FloatingClockSession: NSObject, ObservableObject {
         let key = "\(dateText)\u{1}\(timeText)\u{1}\(highlighted ?? "")\u{1}\(settings.colorHex)\u{1}\(settings.alphaPercent)\u{1}\(settings.fontSize)\u{1}\(settings.showCaptionsInFloat)\u{1}\(settings.captions.joined(separator: "\u{1}"))"
         if key == lastRenderKey { return }
         lastRenderKey = key
+        let pip = ClockDrawing.pipImage(settings: settings, dateText: dateText, timeText: timeText)
+        host?.enqueuePip(pip)
+        if hidesInAppClock { return }
         let (image, nextLayout) = ClockDrawing.image(
             settings: settings,
             dateText: dateText,
@@ -253,11 +286,12 @@ final class FloatingClockSession: NSObject, ObservableObject {
             layout = nextLayout
             placeOrigin()
         }
-        host?.show(image)
+        host?.showCard(image)
     }
 
     private func turnOn() {
         isEnabled = true
+        userStopped = false
         ClockPreferences.setEnabled(true)
         audio.mixWithOthers = settings.mixWithOtherAudio
         do {
@@ -278,8 +312,10 @@ final class FloatingClockSession: NSObject, ObservableObject {
 
     private func turnOff() {
         ignoreDismiss = true
+        userStopped = true
         isEnabled = false
         isPipActive = false
+        hidesInAppClock = false
         ClockPreferences.setEnabled(false)
         renderTimer?.invalidate()
         renderTimer = nil
@@ -297,6 +333,20 @@ final class FloatingClockSession: NSObject, ObservableObject {
         }
     }
 
+    private func scheduleRestore() {
+        guard isEnabled, !userStopped, !sceneIsActive else { return }
+        guard host?.isPictureInPictureActive != true else { return }
+        guard restoreAttempts < 3 else { return }
+        restoreAttempts += 1
+        audio.restartIfNeeded()
+        let delay = 0.35 * Double(restoreAttempts)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.isEnabled, !self.userStopped, !self.sceneIsActive else { return }
+            guard self.host?.isPictureInPictureActive != true else { return }
+            self.host?.startPictureInPicture()
+        }
+    }
+
     private func reloadFromExternal() {
         let shouldRun = ClockPreferences.isEnabled()
         settings = ClockPreferences.loadSettings()
@@ -304,6 +354,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
         refreshSyncLabel()
         reloadSRT()
         DocumentsMirror.sync()
+        PhotoLibrarySaver.exportPendingIfNeeded()
         recomputeLayout()
         WidgetCenter.shared.reloadAllTimelines()
         if isEnabled && !shouldRun {
@@ -472,15 +523,29 @@ enum DocumentsMirror {
     }
 
     static func sync() {
-        let source = AppIdentity.srtURL.standardizedFileURL
-        let destination = documentsSRT.standardizedFileURL
-        if source == destination { return }
-        if FileManager.default.fileExists(atPath: source.path) {
-            try? FileManager.default.removeItem(at: destination)
-            try? FileManager.default.copyItem(at: source, to: destination)
-        } else if FileManager.default.fileExists(atPath: destination.path) {
-            try? FileManager.default.removeItem(at: destination)
+        let sourceRoot = AppIdentity.storageDirectory.standardizedFileURL
+        let documentsRoot = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(AppIdentity.srtDirectoryName, isDirectory: true)
+            .standardizedFileURL
+        if sourceRoot == documentsRoot { return }
+        try? FileManager.default.createDirectory(at: documentsRoot, withIntermediateDirectories: true)
+        copyFile(named: AppIdentity.srtFileName, from: sourceRoot, to: documentsRoot)
+        copyFile(named: AppIdentity.textLogFileName, from: sourceRoot, to: documentsRoot)
+        let shots = sourceRoot.appendingPathComponent(AppIdentity.screenshotsDirectoryName, isDirectory: true)
+        let shotDest = documentsRoot.appendingPathComponent(AppIdentity.screenshotsDirectoryName, isDirectory: true)
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: shots.path) else { return }
+        try? FileManager.default.createDirectory(at: shotDest, withIntermediateDirectories: true)
+        for name in names where name.hasSuffix(".jpg") {
+            copyFile(named: name, from: shots, to: shotDest)
         }
+    }
+
+    private static func copyFile(named name: String, from sourceDir: URL, to destDir: URL) {
+        let source = sourceDir.appendingPathComponent(name)
+        let destination = destDir.appendingPathComponent(name)
+        guard FileManager.default.fileExists(atPath: source.path) else { return }
+        try? FileManager.default.removeItem(at: destination)
+        try? FileManager.default.copyItem(at: source, to: destination)
     }
 }
 

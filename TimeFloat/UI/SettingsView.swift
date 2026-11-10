@@ -22,6 +22,7 @@ struct SettingsView: View {
                     appearanceSection
                     timeSection
                     captionSection
+                    screenshotSection
                     srtSection
                 }
                 .padding(16)
@@ -200,11 +201,37 @@ struct SettingsView: View {
         }
     }
 
+    private var broadcastBundleID: String {
+        let raw = Bundle.main.object(forInfoDictionaryKey: "TimeFloatBroadcastBundle") as? String
+        if let raw, !raw.isEmpty, !raw.contains("$") { return raw }
+        return "com.yourname.timefloat.broadcast"
+    }
+
+    private var screenshotSection: some View {
+        card {
+            Text("点字幕截屏")
+                .font(.headline)
+            Toggle("点字幕时保存截图", isOn: binding(\.screenshotOnCaption))
+            Text("系统不允许 App 自己截别的 App 或主屏幕。要截全屏，请打开上面的开关，点下面的广播按钮，在系统面板里开始「悬浮时钟」的屏幕广播，并保持它开着。之后每次点字幕，会把最近一帧存进文件 App。广播没开时，只有在本 App 里点字幕才会截本 App 自己的画面。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            if session.settings.screenshotOnCaption {
+                HStack(spacing: 12) {
+                    BroadcastPicker(extensionBundleID: broadcastBundleID)
+                        .frame(width: 48, height: 48)
+                    Text("点此开始或停止屏幕广播")
+                        .font(.subheadline)
+                }
+                Toggle("截图也存到照片", isOn: binding(\.saveScreenshotsToPhotos))
+            }
+        }
+    }
+
     private var srtSection: some View {
         card {
             Text("SRT 记录")
                 .font(.headline)
-            Text("共 \(session.srtCount) 条。文件名 road_test_srt.srt。在「文件」App 的「我的 iPhone / 悬浮时钟 / TimeFloat」里。")
+            Text("共 \(session.srtCount) 条。同目录还有 time_float.txt。在「文件」App 的「我的 iPhone / 悬浮时钟 / TimeFloat」里。截图在其中的 Screenshots。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             HStack {

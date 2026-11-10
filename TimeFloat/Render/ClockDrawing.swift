@@ -123,6 +123,27 @@ enum ClockDrawing {
         return (image, layout)
     }
 
+    /// Small wide frame. Its aspect ratio is the PiP window shape, so the system window stays easy to grab.
+    static func pipImage(settings: ClockSettings, dateText: String, timeText: String) -> UIImage {
+        let size = CGSize(width: 320, height: 132)
+        let base = RGB.from(hex: settings.colorHex)
+        let blended = base.blendedOverBlack(alpha: Double(settings.alphaPercent) / 100)
+        let background = uiColor(blended)
+        let textColor: UIColor = base.prefersDarkText ? .black : .white
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 2
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        return renderer.image { context in
+            background.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            let dateFont = UIFont.monospacedDigitSystemFont(ofSize: 18, weight: .regular)
+            let timeFont = UIFont.monospacedDigitSystemFont(ofSize: 44, weight: .bold)
+            draw(dateText, in: CGRect(x: 12, y: 18, width: size.width - 24, height: 28), font: dateFont, color: textColor, alignment: .center)
+            draw(timeText, in: CGRect(x: 12, y: 48, width: size.width - 24, height: 64), font: timeFont, color: textColor, alignment: .center)
+        }
+    }
+
     private static func measure(_ text: String, font: UIFont) -> CGSize {
         let bounds = (text as NSString).boundingRect(
             with: CGSize(width: 2000, height: 400),

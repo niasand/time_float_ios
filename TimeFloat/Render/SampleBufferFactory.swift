@@ -10,7 +10,7 @@ enum SampleBufferFactory {
 
     /// BGRA buffers backed by an IOSurface. The display layer ignores frames that are not IOSurface-backed.
     /// Buffers come from a pool so a clock tick does not allocate a new IOSurface.
-    static func make(from image: UIImage) -> CMSampleBuffer? {
+    static func make(from image: UIImage, presentationTime: CMTime = .zero) -> CMSampleBuffer? {
         guard let cgImage = image.cgImage else { return nil }
         let width = cgImage.width
         let height = cgImage.height
@@ -42,8 +42,8 @@ enum SampleBufferFactory {
         guard formatStatus == noErr, let format else { return nil }
 
         var timing = CMSampleTimingInfo(
-            duration: .invalid,
-            presentationTimeStamp: .invalid,
+            duration: CMTime(value: 1, timescale: 2),
+            presentationTimeStamp: presentationTime,
             decodeTimeStamp: .invalid
         )
         var sampleBuffer: CMSampleBuffer?
@@ -56,15 +56,6 @@ enum SampleBufferFactory {
         )
         guard sampleStatus == noErr, let sampleBuffer else { return nil }
 
-        if let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: true),
-           CFArrayGetCount(attachments) > 0 {
-            let dictionary = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
-            CFDictionarySetValue(
-                dictionary,
-                Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
-                Unmanaged.passUnretained(kCFBooleanTrue).toOpaque()
-            )
-        }
         return sampleBuffer
     }
 

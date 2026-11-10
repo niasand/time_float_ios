@@ -51,20 +51,28 @@ def resources(folder):
 
 app_sources = swift_files("TimeFloat") + swift_files("Shared")
 widget_sources = swift_files("TimeFloatWidget") + swift_files("Shared")
+broadcast_sources = swift_files("TimeFloatBroadcast")
 app_resources = resources("TimeFloat")
 widget_resources = resources("TimeFloatWidget")
+broadcast_resources = resources("TimeFloatBroadcast")
 loose = [
     "Config/Shared.xcconfig",
     "TimeFloat/Info.plist",
     "TimeFloat/TimeFloat.entitlements",
     "TimeFloatWidget/Info.plist",
     "TimeFloatWidget/TimeFloatWidget.entitlements",
+    "TimeFloatBroadcast/Info.plist",
+    "TimeFloatBroadcast/TimeFloatBroadcast.entitlements",
 ]
 
-all_files = list(dict.fromkeys(app_sources + widget_sources + app_resources + widget_resources + loose))
+all_files = list(dict.fromkeys(
+    app_sources + widget_sources + broadcast_sources
+    + app_resources + widget_resources + broadcast_resources + loose
+))
 refs = {rel: uid("file:" + rel) for rel in all_files}
 app_product = uid("product:app")
 widget_product = uid("product:widget")
+broadcast_product = uid("product:broadcast")
 
 
 def ftype(rel):
@@ -115,11 +123,22 @@ for rel in widget_sources:
     add_build("widget-src:" + rel, refs[rel], f"{Path(rel).name} in Sources")
 for rel in widget_resources:
     add_build("widget-res:" + rel, refs[rel], f"{Path(rel).name} in Resources")
+for rel in broadcast_sources:
+    add_build("broadcast-src:" + rel, refs[rel], f"{Path(rel).name} in Sources")
+for rel in broadcast_resources:
+    add_build("broadcast-res:" + rel, refs[rel], f"{Path(rel).name} in Resources")
+embed_settings = "{ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }"
 add_build(
     "embed",
     widget_product,
     "TimeFloatWidget.appex in Embed Foundation Extensions",
-    "{ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }",
+    embed_settings,
+)
+add_build(
+    "embed-broadcast",
+    broadcast_product,
+    "TimeFloatBroadcast.appex in Embed Foundation Extensions",
+    embed_settings,
 )
 emit("/* End PBXBuildFile section */")
 emit("")
@@ -133,6 +152,9 @@ emit(
 )
 emit(
     f"\t\t{widget_product} /* TimeFloatWidget.appex */ = {{isa = PBXFileReference; explicitFileType = \"wrapper.app-extension\"; includeInIndex = 0; path = TimeFloatWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; }};"
+)
+emit(
+    f"\t\t{broadcast_product} /* TimeFloatBroadcast.appex */ = {{isa = PBXFileReference; explicitFileType = \"wrapper.app-extension\"; includeInIndex = 0; path = TimeFloatBroadcast.appex; sourceTree = BUILT_PRODUCTS_DIR; }};"
 )
 emit("/* End PBXFileReference section */")
 emit("")
@@ -189,6 +211,7 @@ emit(
     f"\t\t\tchildren = (\n"
     f"\t\t\t\t{app_product} /* TimeFloat.app */,\n"
     f"\t\t\t\t{widget_product} /* TimeFloatWidget.appex */,\n"
+    f"\t\t\t\t{broadcast_product} /* TimeFloatBroadcast.appex */,\n"
     f"\t\t\t);\n"
     f"\t\t\tname = Products;\n"
     f"\t\t\tsourceTree = \"<group>\";\n"
@@ -223,17 +246,24 @@ emit("")
 emit("/* Begin PBXSourcesBuildPhase section */")
 app_sources_phase = phase("App Sources", "PBXSourcesBuildPhase", ["app-src:" + rel for rel in app_sources])
 widget_sources_phase = phase("Widget Sources", "PBXSourcesBuildPhase", ["widget-src:" + rel for rel in widget_sources])
+broadcast_sources_phase = phase("Broadcast Sources", "PBXSourcesBuildPhase", ["broadcast-src:" + rel for rel in broadcast_sources])
 emit("/* End PBXSourcesBuildPhase section */")
 emit("")
 emit("/* Begin PBXResourcesBuildPhase section */")
 app_resources_phase = phase("App Resources", "PBXResourcesBuildPhase", ["app-res:" + rel for rel in app_resources])
 widget_resources_phase = phase("Widget Resources", "PBXResourcesBuildPhase", ["widget-res:" + rel for rel in widget_resources])
+broadcast_resources_phase = phase("Broadcast Resources", "PBXResourcesBuildPhase", ["broadcast-res:" + rel for rel in broadcast_resources])
 emit("/* End PBXResourcesBuildPhase section */")
 emit("")
 emit("/* Begin PBXFrameworksBuildPhase section */")
 app_frameworks = uid("phase:app-frameworks")
 widget_frameworks = uid("phase:widget-frameworks")
-for ident, title in ((app_frameworks, "App Frameworks"), (widget_frameworks, "Widget Frameworks")):
+broadcast_frameworks = uid("phase:broadcast-frameworks")
+for ident, title in (
+    (app_frameworks, "App Frameworks"),
+    (widget_frameworks, "Widget Frameworks"),
+    (broadcast_frameworks, "Broadcast Frameworks"),
+):
     emit(
         f"\t\t{ident} /* {title} */ = {{\n"
         f"\t\t\tisa = PBXFrameworksBuildPhase;\n"
@@ -252,7 +282,7 @@ emit(
     f"\t\t\tbuildActionMask = 2147483647;\n"
     f"\t\t\tdstPath = \"\";\n"
     f"\t\t\tdstSubfolderSpec = 13;\n"
-    f"\t\t\tfiles = (\n\t\t\t\t{build_ids['embed']} /* TimeFloatWidget.appex in Embed Foundation Extensions */,\n\t\t\t);\n"
+    f"\t\t\tfiles = (\n\t\t\t\t{build_ids['embed']} /* TimeFloatWidget.appex in Embed Foundation Extensions */,\n\t\t\t\t{build_ids['embed-broadcast']} /* TimeFloatBroadcast.appex in Embed Foundation Extensions */,\n\t\t\t);\n"
     f"\t\t\tname = \"Embed Foundation Extensions\";\n"
     f"\t\t\trunOnlyForDeploymentPostprocessing = 0;\n"
     f"\t\t}};"
@@ -261,8 +291,11 @@ emit("/* End PBXCopyFilesBuildPhase section */")
 
 app_target = uid("target:app")
 widget_target = uid("target:widget")
+broadcast_target = uid("target:broadcast")
 proxy = uid("proxy:widget")
+broadcast_proxy = uid("proxy:broadcast")
 dependency = uid("dependency:widget")
+broadcast_dependency = uid("dependency:broadcast")
 
 emit("")
 emit("/* Begin PBXContainerItemProxy section */")
@@ -275,6 +308,15 @@ emit(
     f"\t\t\tremoteInfo = TimeFloatWidget;\n"
     f"\t\t}};"
 )
+emit(
+    f"\t\t{broadcast_proxy} /* PBXContainerItemProxy */ = {{\n"
+    f"\t\t\tisa = PBXContainerItemProxy;\n"
+    f"\t\t\tcontainerPortal = {uid('project')} /* Project object */;\n"
+    f"\t\t\tproxyType = 1;\n"
+    f"\t\t\tremoteGlobalIDString = {broadcast_target};\n"
+    f"\t\t\tremoteInfo = TimeFloatBroadcast;\n"
+    f"\t\t}};"
+)
 emit("/* End PBXContainerItemProxy section */")
 emit("")
 emit("/* Begin PBXTargetDependency section */")
@@ -285,6 +327,13 @@ emit(
     f"\t\t\ttargetProxy = {proxy} /* PBXContainerItemProxy */;\n"
     f"\t\t}};"
 )
+emit(
+    f"\t\t{broadcast_dependency} /* PBXTargetDependency */ = {{\n"
+    f"\t\t\tisa = PBXTargetDependency;\n"
+    f"\t\t\ttarget = {broadcast_target} /* TimeFloatBroadcast */;\n"
+    f"\t\t\ttargetProxy = {broadcast_proxy} /* PBXContainerItemProxy */;\n"
+    f"\t\t}};"
+)
 emit("/* End PBXTargetDependency section */")
 
 project_debug = uid("config:project:debug")
@@ -293,9 +342,12 @@ app_debug = uid("config:app:debug")
 app_release = uid("config:app:release")
 widget_debug = uid("config:widget:debug")
 widget_release = uid("config:widget:release")
+broadcast_debug = uid("config:broadcast:debug")
+broadcast_release = uid("config:broadcast:release")
 project_list = uid("list:project")
 app_list = uid("list:app")
 widget_list = uid("list:widget")
+broadcast_list = uid("list:broadcast")
 xcconfig_ref = refs["Config/Shared.xcconfig"]
 
 common_project = {
@@ -391,6 +443,23 @@ widget_settings = {
     "TARGETED_DEVICE_FAMILY": "1,2",
     "IPHONEOS_DEPLOYMENT_TARGET": "17.0",
 }
+broadcast_settings = {
+    "APPLICATION_EXTENSION_API_ONLY": "YES",
+    "CODE_SIGN_ENTITLEMENTS": "TimeFloatBroadcast/TimeFloatBroadcast.entitlements",
+    "CURRENT_PROJECT_VERSION": "1",
+    "GENERATE_INFOPLIST_FILE": "NO",
+    "INFOPLIST_FILE": "TimeFloatBroadcast/Info.plist",
+    "LD_RUNPATH_SEARCH_PATHS": ["$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks"],
+    "MARKETING_VERSION": "1.0",
+    "PRODUCT_BUNDLE_IDENTIFIER": "$(BROADCAST_BUNDLE_ID)",
+    "PRODUCT_BUNDLE_PACKAGE_TYPE": "XPC!",
+    "PRODUCT_NAME": "$(TARGET_NAME)",
+    "SKIP_INSTALL": "YES",
+    "SWIFT_EMIT_LOC_STRINGS": "YES",
+    "SWIFT_VERSION": "5.0",
+    "TARGETED_DEVICE_FAMILY": "1,2",
+    "IPHONEOS_DEPLOYMENT_TARGET": "17.0",
+}
 
 
 def config(ident, name, settings, base):
@@ -412,6 +481,8 @@ config(app_debug, "Debug", app_settings, xcconfig_ref)
 config(app_release, "Release", app_settings, xcconfig_ref)
 config(widget_debug, "Debug", widget_settings, xcconfig_ref)
 config(widget_release, "Release", widget_settings, xcconfig_ref)
+config(broadcast_debug, "Debug", broadcast_settings, xcconfig_ref)
+config(broadcast_release, "Release", broadcast_settings, xcconfig_ref)
 emit("/* End XCBuildConfiguration section */")
 emit("")
 emit("/* Begin XCConfigurationList section */")
@@ -419,6 +490,7 @@ for ident, label, debug, release in (
     (project_list, "Project", project_debug, project_release),
     (app_list, "App", app_debug, app_release),
     (widget_list, "Widget", widget_debug, widget_release),
+    (broadcast_list, "Broadcast", broadcast_debug, broadcast_release),
 ):
     emit(
         f"\t\t{ident} /* Build configuration list for {label} */ = {{\n"
@@ -447,7 +519,7 @@ emit(
     f"\t\t\t\t{embed_phase} /* Embed Foundation Extensions */,\n"
     f"\t\t\t);\n"
     f"\t\t\tbuildRules = (\n\t\t\t);\n"
-    f"\t\t\tdependencies = (\n\t\t\t\t{dependency} /* PBXTargetDependency */,\n\t\t\t);\n"
+    f"\t\t\tdependencies = (\n\t\t\t\t{dependency} /* PBXTargetDependency */,\n\t\t\t\t{broadcast_dependency} /* PBXTargetDependency */,\n\t\t\t);\n"
     f"\t\t\tname = TimeFloat;\n"
     f"\t\t\tproductName = TimeFloat;\n"
     f"\t\t\tproductReference = {app_product} /* TimeFloat.app */;\n"
@@ -471,6 +543,23 @@ emit(
     f"\t\t\tproductType = \"com.apple.product-type.app-extension\";\n"
     f"\t\t}};"
 )
+emit(
+    f"\t\t{broadcast_target} /* TimeFloatBroadcast */ = {{\n"
+    f"\t\t\tisa = PBXNativeTarget;\n"
+    f"\t\t\tbuildConfigurationList = {broadcast_list} /* Build configuration list for Broadcast */;\n"
+    f"\t\t\tbuildPhases = (\n"
+    f"\t\t\t\t{broadcast_sources_phase} /* Broadcast Sources */,\n"
+    f"\t\t\t\t{broadcast_frameworks} /* Broadcast Frameworks */,\n"
+    f"\t\t\t\t{broadcast_resources_phase} /* Broadcast Resources */,\n"
+    f"\t\t\t);\n"
+    f"\t\t\tbuildRules = (\n\t\t\t);\n"
+    f"\t\t\tdependencies = (\n\t\t\t);\n"
+    f"\t\t\tname = TimeFloatBroadcast;\n"
+    f"\t\t\tproductName = TimeFloatBroadcast;\n"
+    f"\t\t\tproductReference = {broadcast_product} /* TimeFloatBroadcast.appex */;\n"
+    f"\t\t\tproductType = \"com.apple.product-type.app-extension\";\n"
+    f"\t\t}};"
+)
 emit("/* End PBXNativeTarget section */")
 emit("")
 emit("/* Begin PBXProject section */")
@@ -483,6 +572,7 @@ emit(
     f"\t\t\t\tTargetAttributes = {{\n"
     f"\t\t\t\t\t{app_target} = {{ CreatedOnToolsVersion = 16.0; }};\n"
     f"\t\t\t\t\t{widget_target} = {{ CreatedOnToolsVersion = 16.0; }};\n"
+    f"\t\t\t\t\t{broadcast_target} = {{ CreatedOnToolsVersion = 16.0; }};\n"
     f"\t\t\t\t}};\n"
     f"\t\t\t}};\n"
     f"\t\t\tbuildConfigurationList = {project_list} /* Build configuration list for Project */;\n"
@@ -497,6 +587,7 @@ emit(
     f"\t\t\ttargets = (\n"
     f"\t\t\t\t{app_target} /* TimeFloat */,\n"
     f"\t\t\t\t{widget_target} /* TimeFloatWidget */,\n"
+    f"\t\t\t\t{broadcast_target} /* TimeFloatBroadcast */,\n"
     f"\t\t\t);\n"
     f"\t\t}};"
 )

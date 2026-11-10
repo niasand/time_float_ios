@@ -59,20 +59,30 @@ enum CaptionLogger {
     static let highlightSeconds: TimeInterval = 3
 
     @discardableResult
-    static func log(caption: String, now: Date = Date()) -> String? {
+    static func log(caption: String, now: Date = Date(), screenshotFilename: String? = nil) -> String? {
         let text = caption.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "字幕不能为空" }
         let settings = ClockPreferences.loadSettings()
         let sync = ClockPreferences.loadSync()
         let stamped = settings.corrected(now, offset: sync.offset)
+        let screenshot = screenshotFilename ?? ScreenFrameStore.adoptLatest(caption: text, date: stamped, enabled: settings.screenshotOnCaption)
         do {
             try SrtLog.append(caption: text, at: stamped, milliseconds: settings.showMilliseconds)
+            try TextLog.append(caption: text, at: stamped, milliseconds: settings.showMilliseconds, screenshot: screenshot)
         } catch {
             return "SRT 写入失败"
         }
         ClockPreferences.setHighlight(caption: text, until: Date().addingTimeInterval(highlightSeconds))
+        if let screenshot {
+            defaultsNoteScreenshot(screenshot)
+        }
         DarwinBridge.post()
         return nil
+    }
+
+    private static func defaultsNoteScreenshot(_ name: String) {
+        AppIdentity.sharedDefaults.set(name, forKey: "last_screenshot_name")
+        AppIdentity.sharedDefaults.synchronize()
     }
 
     @discardableResult

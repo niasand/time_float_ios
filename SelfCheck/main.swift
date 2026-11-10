@@ -70,6 +70,10 @@ let delay = NTPPacket.roundTripDelay(clientSend: t1, serverReceive: t2, serverTr
 check(abs(offset - 0.85) < 0.000_001, "offset \(offset)")
 check(abs(delay - 2.3) < 0.000_001, "delay \(delay)")
 
+let textLine = ClockFaceText.textLogLine(date: instant, caption: "停车前", milliseconds: false, screenshot: "shot.jpg")
+check(textLine.contains("：停车前 shot.jpg"), "text log \(textLine)")
+let plainText = ClockFaceText.textLogLine(date: instant, caption: "停车前", milliseconds: false, screenshot: nil)
+check(plainText.hasSuffix("：停车前\n") && !plainText.contains("jpg"), "text log without shot")
 let line = ClockFaceText.srtLine(date: instant, caption: "停车前", milliseconds: false)
 check(line.hasSuffix("：停车前\n"), "srt suffix")
 check(line.range(of: #"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}：停车前\n$"#, options: .regularExpression) != nil, "srt shape \(line)")

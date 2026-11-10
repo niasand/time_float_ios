@@ -10,6 +10,8 @@ struct ClockSettings: Equatable {
     var showCaptionsInFloat: Bool = true
     var keepAwake: Bool = true
     var mixWithOtherAudio: Bool = true
+    var screenshotOnCaption: Bool = false
+    var saveScreenshotsToPhotos: Bool = false
     var armedIndex: Int = 0
 
     static let minAlpha = 20
@@ -54,6 +56,8 @@ enum ClockPreferences {
         static let showCaptions = "show_captions_in_float"
         static let keepAwake = "keep_awake"
         static let mixAudio = "mix_audio"
+        static let screenshotOnCaption = "screenshot_on_caption"
+        static let saveScreenshotsToPhotos = "save_screenshots_to_photos"
         static let armedIndex = "armed_index"
         static let highlightCaption = "highlight_caption"
         static let highlightUntil = "highlight_until"
@@ -98,6 +102,8 @@ enum ClockPreferences {
         if defaults.object(forKey: Key.mixAudio) != nil {
             settings.mixWithOtherAudio = defaults.bool(forKey: Key.mixAudio)
         }
+        settings.screenshotOnCaption = defaults.bool(forKey: Key.screenshotOnCaption)
+        settings.saveScreenshotsToPhotos = defaults.bool(forKey: Key.saveScreenshotsToPhotos)
         settings.captions = loadCaptions()
         settings.armedIndex = defaults.integer(forKey: Key.armedIndex)
         if !settings.captions.indices.contains(settings.armedIndex) {
@@ -122,6 +128,8 @@ enum ClockPreferences {
         defaults.set(settings.showCaptionsInFloat, forKey: Key.showCaptions)
         defaults.set(settings.keepAwake, forKey: Key.keepAwake)
         defaults.set(settings.mixWithOtherAudio, forKey: Key.mixAudio)
+        defaults.set(settings.screenshotOnCaption, forKey: Key.screenshotOnCaption)
+        defaults.set(settings.saveScreenshotsToPhotos, forKey: Key.saveScreenshotsToPhotos)
         defaults.set(settings.armedIndex, forKey: Key.armedIndex)
         if let data = try? JSONEncoder().encode(settings.captions) {
             defaults.set(data, forKey: Key.captions)
