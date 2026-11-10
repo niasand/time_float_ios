@@ -1,0 +1,15 @@
+// TimeFloat signing
+//
+// 1. Change APP_BUNDLE_ID to a unique id, for example com.zhangsan.timefloat
+// 2. WIDGET_BUNDLE_ID must stay "<APP_BUNDLE_ID>.widget"
+// 3. APP_GROUP_ID must start with "group." and should change with the bundle id
+// 4. Leave DEVELOPMENT_TEAM empty. In Xcode, select your Personal Team on BOTH targets.
+//
+// These values are substituted into the bundle identifiers, Info.plist, and entitlements.
+
+APP_BUNDLE_ID = com.yourname.timefloat
+WIDGET_BUNDLE_ID = com.yourname.timefloat.widget
+APP_GROUP_ID = group.com.yourname.timefloat
+DEVELOPMENT_TEAM =
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
