@@ -8,6 +8,7 @@ final class SilentAudioEngine {
     private var player: AVAudioPlayer?
     private var interruptionObserver: NSObjectProtocol?
     private(set) var isRunning = false
+    var isPlaying: Bool { isRunning && player?.isPlaying == true }
     var mixWithOthers = true
     var onInterrupted: (() -> Void)?
     var onRecovered: (() -> Void)?

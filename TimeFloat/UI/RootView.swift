@@ -7,9 +7,10 @@ struct RootView: View {
         ZStack(alignment: .topLeading) {
             SettingsView()
             if session.isEnabled {
+                // Do not fade this view. Its sample-buffer layer is the PiP source and must stay
+                // at alpha 1 in the window. The in-app drawing is hidden separately once PiP is up.
                 FloatingOverlayRepresentable(session: session)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .opacity(session.hidesInAppClock ? 0 : 1)
+                    .ignoresSafeArea()
                     .allowsHitTesting(!session.hidesInAppClock)
             }
             if let banner = session.banner {
@@ -68,11 +69,8 @@ struct FloatingOverlayRepresentable: UIViewRepresentable {
         session.attachOverlay(view)
         view.place(origin: session.origin, size: session.layout.size)
         view.card.setChips(session.layout.chips)
+        view.card.setInlineChromeHidden(session.hidesInAppClock)
         return view
-    }
-
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: FloatingOverlayView, context: Context) -> CGSize? {
-        CGSize(width: proposal.width ?? uiView.bounds.width, height: proposal.height ?? uiView.bounds.height)
     }
 
     func updateUIView(_ uiView: FloatingOverlayView, context: Context) {
@@ -85,5 +83,6 @@ struct FloatingOverlayRepresentable: UIViewRepresentable {
             uiView.place(origin: session.origin, size: session.layout.size)
         }
         uiView.card.setChips(session.layout.chips)
+        uiView.card.setInlineChromeHidden(session.hidesInAppClock)
     }
 }

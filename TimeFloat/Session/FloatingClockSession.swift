@@ -47,7 +47,10 @@ final class FloatingClockSession: NSObject, ObservableObject {
     private var restoreAttempts = 0
     private var userStopped = false
     private var runToken = 0
+    private var expectingPipStart = false
+    private var pipDidStart = false
     private var restoreWork: DispatchWorkItem?
+    private var resignObserver: NSObjectProtocol?
     private weak var overlayView: FloatingOverlayView?
     var switchFrameInWindow: CGRect = .zero
     private var darwin: DarwinObserver?
@@ -68,6 +71,15 @@ final class FloatingClockSession: NSObject, ObservableObject {
         darwin = DarwinObserver { [weak self] in
             Task { @MainActor in
                 self?.reloadFromExternal()
+            }
+        }
+        resignObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.sceneWentBackground()
             }
         }
         syncTimer = Timer(timeInterval: 600, repeats: true) { [weak self] _ in
@@ -139,6 +151,9 @@ final class FloatingClockSession: NSObject, ObservableObject {
     func sceneBecameActive() {
         sceneIsActive = true
         restoreAttempts = 0
+        if host?.isPictureInPictureActive != true {
+            expectingPipStart = false
+        }
         // Do not stop Picture in Picture here. Closing it on foreground was dismissing the floating clock.
         hidesInAppClock = host?.isPictureInPictureActive == true
         reloadFromExternal()
@@ -149,10 +164,20 @@ final class FloatingClockSession: NSObject, ObservableObject {
     }
 
     func sceneWentBackground() {
+        PipLog.info("PiP background enabled=\(isEnabled) userStopped=\(userStopped) audioPlaying=\(audio.isPlaying)")
         sceneIsActive = false
         guard isEnabled, !userStopped else { return }
-        hidesInAppClock = true
+        expectingPipStart = true
         restoreAttempts = 0
+        if !audio.isRunning {
+            try? audio.start()
+        } else {
+            audio.restartIfNeeded()
+        }
+        // A fresh frame has to be queued while the source layer is still on screen and opaque.
+        lastRenderKey = ""
+        renderFrame()
+        host?.prepareVisibleSource()
         host?.startPictureInPicture()
     }
 
@@ -249,10 +274,14 @@ final class FloatingClockSession: NSObject, ObservableObject {
         self.host = host
         host.onActiveChange = { [weak self] active in
             Task { @MainActor in
-                self?.isPipActive = active
+                guard let self else { return }
+                self.isPipActive = active
                 if active {
-                    self?.hidesInAppClock = true
-                    self?.restoreAttempts = 0
+                    self.pipDidStart = true
+                    self.expectingPipStart = false
+                    self.hidesInAppClock = true
+                    self.restoreAttempts = 0
+                    PipLog.info("PiP active; in-app drawing hidden, source layer left opaque")
                 }
             }
         }
@@ -262,9 +291,18 @@ final class FloatingClockSession: NSObject, ObservableObject {
             let token = MainActor.assumeIsolated { self?.runToken ?? -1 }
             Task { @MainActor in
                 guard let self, self.runToken == token else { return }
+                if self.audioInterrupted {
+                    PipLog.info("PiP stop during audio interruption; waiting to resume")
+                    return
+                }
+                // A stop before the window has appeared is not the close button.
+                if self.expectingPipStart || !self.pipDidStart {
+                    PipLog.info("PiP stop is not a user close; will try to start again")
+                    self.scheduleRestore()
+                    return
+                }
                 guard !self.ignoreDismiss, self.isEnabled, !self.userStopped else { return }
-                // The system close button. A phone-call interruption sets audioInterrupted first and must not turn the clock off.
-                if self.audioInterrupted { return }
+                PipLog.info("PiP stop is the close button; turning the clock off")
                 self.turnOff()
             }
         }
@@ -279,7 +317,10 @@ final class FloatingClockSession: NSObject, ObservableObject {
         }
         host.onFailed = { [weak self] message in
             Task { @MainActor in
-                self?.statusText = message
+                guard let self else { return }
+                self.statusText = message
+                PipLog.info("PiP failed callback: \(message)")
+                self.scheduleRestore()
             }
         }
         renderFrame()
@@ -317,7 +358,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
             placeOrigin()
         }
         lastClockImage = image
-        host?.enqueuePip(image, opacity: CGFloat(settings.alphaPercent) / 100)
+        host?.enqueuePip(image)
         host?.showCard(image)
         host?.setChips(nextLayout.chips)
         host?.layoutIfNeeded()
@@ -328,6 +369,8 @@ final class FloatingClockSession: NSObject, ObservableObject {
         isEnabled = true
         userStopped = false
         ignoreDismiss = false
+        expectingPipStart = false
+        pipDidStart = false
         restoreWork?.cancel()
         restoreWork = nil
         ClockPreferences.setEnabled(true)
@@ -352,6 +395,8 @@ final class FloatingClockSession: NSObject, ObservableObject {
         runToken += 1
         userStopped = true
         ignoreDismiss = true
+        expectingPipStart = false
+        pipDidStart = false
         restoreWork?.cancel()
         restoreWork = nil
         isEnabled = false
@@ -446,6 +491,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
         guard host?.isPictureInPictureActive != true else { return }
         guard restoreAttempts < 3 else { return }
         restoreAttempts += 1
+        PipLog.info("PiP schedule restore attempt=\(restoreAttempts)")
         audio.restartIfNeeded()
         let delay = 0.35 * Double(restoreAttempts)
         let token = runToken
