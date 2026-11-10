@@ -1,5 +1,6 @@
 import ActivityKit
 import AVFoundation
+import AVKit
 import Combine
 import MediaPlayer
 import UIKit

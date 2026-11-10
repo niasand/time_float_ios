@@ -1,5 +1,6 @@
 import AVFoundation
 import AVKit
+import CoreMedia
 import UIKit
 
 /// Inline source for Picture in Picture.
