@@ -7,10 +7,8 @@ func check(_ condition: Bool, _ message: String) {
 }
 
 let defaults = CaptionRules.defaults
-check(defaults.count == 12, "default caption count")
+check(defaults == ["状态变化时间点"], "single default caption")
 check(defaults.allSatisfy { $0.count <= CaptionRules.maxLength }, "default caption length")
-check(defaults.first == "进入地下停车场前", "first default caption")
-check(defaults.last == "离开地面停车场后", "last default caption")
 
 func failed(_ result: Result<[String], CaptionRules.AddError>, _ error: CaptionRules.AddError) -> Bool {
     if case .failure(let got) = result { return got == error }
@@ -70,6 +68,10 @@ let delay = NTPPacket.roundTripDelay(clientSend: t1, serverReceive: t2, serverTr
 check(abs(offset - 0.85) < 0.000_001, "offset \(offset)")
 check(abs(delay - 2.3) < 0.000_001, "delay \(delay)")
 
+let textLine = ClockFaceText.textLogLine(date: instant, caption: "停车前", milliseconds: false, screenshot: "shot.jpg")
+check(textLine.contains("：停车前 shot.jpg"), "text log \(textLine)")
+let plainText = ClockFaceText.textLogLine(date: instant, caption: "停车前", milliseconds: false, screenshot: nil)
+check(plainText.hasSuffix("：停车前\n") && !plainText.contains("jpg"), "text log without shot")
 let line = ClockFaceText.srtLine(date: instant, caption: "停车前", milliseconds: false)
 check(line.hasSuffix("：停车前\n"), "srt suffix")
 check(line.range(of: #"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}：停车前\n$"#, options: .regularExpression) != nil, "srt shape \(line)")

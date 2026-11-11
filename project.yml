@@ -36,6 +36,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: "$(APP_BUNDLE_ID)"
+        PRODUCT_BUNDLE_PACKAGE_TYPE: APPL
         INFOPLIST_FILE: TimeFloat/Info.plist
         CODE_SIGN_ENTITLEMENTS: TimeFloat/TimeFloat.entitlements
         GENERATE_INFOPLIST_FILE: NO
@@ -46,6 +47,8 @@ targets:
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     dependencies:
       - target: TimeFloatWidget
+        embed: true
+      - target: TimeFloatBroadcast
         embed: true
   TimeFloatWidget:
     type: app-extension
@@ -59,8 +62,28 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: "$(WIDGET_BUNDLE_ID)"
+        PRODUCT_BUNDLE_PACKAGE_TYPE: "XPC!"
         INFOPLIST_FILE: TimeFloatWidget/Info.plist
         CODE_SIGN_ENTITLEMENTS: TimeFloatWidget/TimeFloatWidget.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+  TimeFloatBroadcast:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: TimeFloatBroadcast
+        excludes:
+          - Info.plist
+          - TimeFloatBroadcast.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(BROADCAST_BUNDLE_ID)"
+        PRODUCT_BUNDLE_PACKAGE_TYPE: "XPC!"
+        INFOPLIST_FILE: TimeFloatBroadcast/Info.plist
+        CODE_SIGN_ENTITLEMENTS: TimeFloatBroadcast/TimeFloatBroadcast.entitlements
         GENERATE_INFOPLIST_FILE: NO
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES

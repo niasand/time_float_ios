@@ -7,6 +7,9 @@ enum AppIdentity {
     static let darwinEventName = "com.yourname.timefloat.event"
     static let srtDirectoryName = "TimeFloat"
     static let srtFileName = "road_test_srt.srt"
+    static let textLogFileName = "time_float.txt"
+    static let latestScreenFileName = "latest_screen.jpg"
+    static let screenshotsDirectoryName = "Screenshots"
 
     static var appGroupID: String {
         let raw = Bundle.main.object(forInfoDictionaryKey: "TimeFloatAppGroup") as? String
@@ -40,5 +43,19 @@ enum AppIdentity {
 
     static var srtURL: URL {
         storageDirectory.appendingPathComponent(srtFileName)
+    }
+
+    static var textLogURL: URL {
+        storageDirectory.appendingPathComponent(textLogFileName)
+    }
+
+    static var latestScreenURL: URL {
+        storageDirectory.appendingPathComponent(latestScreenFileName)
+    }
+
+    static var screenshotsDirectory: URL {
+        let dir = storageDirectory.appendingPathComponent(screenshotsDirectoryName, isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
     }
 }

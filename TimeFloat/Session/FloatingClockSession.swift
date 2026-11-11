@@ -1,5 +1,6 @@
 import ActivityKit
 import AVFoundation
+import AVKit
 import Combine
 import MediaPlayer
 import UIKit
@@ -26,6 +27,8 @@ final class FloatingClockSession: NSObject, ObservableObject {
     @Published var srtCount = 0
     @Published var banner: String?
     @Published var appGroupReady = true
+    /// True while Picture in Picture should be the only clock the user sees.
+    @Published var hidesInAppClock = false
 
     private var storedOrigin = CGPoint(x: -1, y: -1)
     private let audio = SilentAudioEngine()
@@ -36,7 +39,28 @@ final class FloatingClockSession: NSObject, ObservableObject {
     private var ignoreDismiss = false
     private var commandsInstalled = false
     private var lastActivitySecond = -1
+    private var lastRenderKey = ""
+    private var lastClockImage: UIImage?
+    private var finishingShotID: String?
+    private var sceneIsActive = true
+    private var audioInterrupted = false
+    private var restoreAttempts = 0
+    private var userStopped = false
+    private var runToken = 0
+    private var expectingPipStart = false
+    private var pipDidStart = false
+    private var restoreWork: DispatchWorkItem?
+    private var resignObserver: NSObjectProtocol?
+    private weak var overlayView: FloatingOverlayView?
+    var switchFrameInWindow: CGRect = .zero
     private var darwin: DarwinObserver?
+
+    override init() {
+        super.init()
+        CaptionRecording.box.handler = { [weak self] caption in
+            self?.logCaption(caption)
+        }
+    }
 
     func bootstrap() {
         guard !bootstrapped else { return }
@@ -54,6 +78,15 @@ final class FloatingClockSession: NSObject, ObservableObject {
         darwin = DarwinObserver { [weak self] in
             Task { @MainActor in
                 self?.reloadFromExternal()
+            }
+        }
+        resignObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.sceneWentBackground()
             }
         }
         syncTimer = Timer(timeInterval: 600, repeats: true) { [weak self] _ in
@@ -83,6 +116,11 @@ final class FloatingClockSession: NSObject, ObservableObject {
         storedOrigin = clamped
     }
 
+    /// Used while a finger is down so the drag does not publish through the settings screen.
+    func clampedOrigin(_ point: CGPoint) -> CGPoint {
+        clamp(point)
+    }
+
     func finishMove() {
         ClockPreferences.savePosition(x: origin.x, y: origin.y)
     }
@@ -94,18 +132,59 @@ final class FloatingClockSession: NSObject, ObservableObject {
     }
 
     func setEnabled(_ on: Bool) {
-        if on { turnOn() } else { turnOff() }
+        if on {
+            if isEnabled, !userStopped { return }
+            turnOn()
+        } else {
+            if !isEnabled, userStopped { return }
+            turnOff()
+        }
+    }
+
+    func attachOverlay(_ overlay: FloatingOverlayView) {
+        overlayView = overlay
+        overlay.passThroughInWindow = switchFrameInWindow
+    }
+
+    /// The settings switch row, in UIKit window coordinates. Expanded so the thumb is easy to hit.
+    func noteSwitchFrame(_ frame: CGRect) {
+        guard frame.width > 1, frame.height > 1 else { return }
+        let expanded = frame.insetBy(dx: -28, dy: -20)
+        guard expanded != switchFrameInWindow else { return }
+        switchFrameInWindow = expanded
+        overlayView?.passThroughInWindow = expanded
     }
 
     func sceneBecameActive() {
+        sceneIsActive = true
+        restoreAttempts = 0
+        if host?.isPictureInPictureActive != true {
+            expectingPipStart = false
+        }
+        // Do not stop Picture in Picture here. Closing it on foreground was dismissing the floating clock.
+        hidesInAppClock = host?.isPictureInPictureActive == true
         reloadFromExternal()
         DocumentsMirror.sync()
+        PhotoLibrarySaver.exportPendingIfNeeded()
         if let at = sync.at, Date().timeIntervalSince(at) < 600 { return }
         Task { await refreshSync() }
     }
 
     func sceneWentBackground() {
-        guard isEnabled else { return }
+        PipLog.info("PiP background enabled=\(isEnabled) userStopped=\(userStopped) audioPlaying=\(audio.isPlaying)")
+        sceneIsActive = false
+        guard isEnabled, !userStopped else { return }
+        expectingPipStart = true
+        restoreAttempts = 0
+        if !audio.isRunning {
+            try? audio.start()
+        } else {
+            audio.restartIfNeeded()
+        }
+        // A fresh frame has to be queued while the source layer is still on screen and opaque.
+        lastRenderKey = ""
+        renderFrame()
+        host?.prepareVisibleSource()
         host?.startPictureInPicture()
     }
 
@@ -137,26 +216,6 @@ final class FloatingClockSession: NSObject, ObservableObject {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
-    func addCaption(_ raw: String) {
-        switch CaptionRules.adding(raw, to: settings.captions) {
-        case .success(let list):
-            updateSettings { $0.captions = list }
-        case .failure(let error):
-            showBanner(error.message)
-        }
-    }
-
-    func deleteCaption(_ caption: String) {
-        updateSettings { settings in
-            settings.captions.removeAll { $0 == caption }
-        }
-    }
-
-    func arm(_ caption: String) {
-        guard let index = settings.captions.firstIndex(of: caption) else { return }
-        updateSettings { $0.armedIndex = index }
-    }
-
     func logCaption(_ caption: String) {
         if let error = CaptionLogger.log(caption: caption) {
             showBanner(error)
@@ -164,7 +223,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
         }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         showBanner("已记录 \(caption)")
-        reloadFromExternal()
+        Task { await finishPendingShot() }
     }
 
     func refreshSync() async {
@@ -187,6 +246,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
 
     func clearSRT() {
         try? SrtLog.clear()
+        try? TextLog.clear()
         DocumentsMirror.sync()
         reloadSRT()
         showBanner("已清空记录")
@@ -200,20 +260,64 @@ final class FloatingClockSession: NSObject, ObservableObject {
         guard self.host !== host else { return }
         self.host = host
         host.onActiveChange = { [weak self] active in
-            Task { @MainActor in self?.isPipActive = active }
+            Task { @MainActor in
+                guard let self else { return }
+                self.isPipActive = active
+                if active {
+                    self.pipDidStart = true
+                    self.expectingPipStart = false
+                    self.hidesInAppClock = true
+                    self.restoreAttempts = 0
+                    PipLog.info("PiP active; in-app drawing hidden, source layer left opaque")
+                }
+            }
         }
         host.onDismissed = { [weak self] in
+            // Picture in Picture calls this on the main thread. Read the token there, then hop
+            // back onto the actor so a later turn-on is not undone by this close.
+            let token = MainActor.assumeIsolated { self?.runToken ?? -1 }
             Task { @MainActor in
-                guard let self, !self.ignoreDismiss, self.isEnabled else { return }
+                guard let self, self.runToken == token else { return }
+                if self.audioInterrupted {
+                    PipLog.info("PiP stop during audio interruption; waiting to resume")
+                    return
+                }
+                // A stop before the window has appeared is not the close button.
+                if self.expectingPipStart || !self.pipDidStart {
+                    PipLog.info("PiP stop is not a user close; will try to start again")
+                    self.scheduleRestore()
+                    return
+                }
+                guard !self.ignoreDismiss, self.isEnabled, !self.userStopped else { return }
+                PipLog.info("PiP stop is the close button; turning the clock off")
                 self.turnOff()
+            }
+        }
+        audio.onInterrupted = { [weak self] in
+            Task { @MainActor in self?.audioInterrupted = true }
+        }
+        audio.onRecovered = { [weak self] in
+            Task { @MainActor in
+                self?.audioInterrupted = false
+                self?.scheduleRestore()
+            }
+        }
+        host.onRecordArmed = { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.logCaption(CaptionRules.fixedCaption)
             }
         }
         host.onFailed = { [weak self] message in
             Task { @MainActor in
-                self?.statusText = message
+                guard let self else { return }
+                self.statusText = message
+                PipLog.info("PiP failed callback: \(message)")
+                self.scheduleRestore()
             }
         }
         renderFrame()
+        host.preparePictureInPicture()
     }
 
     func renderFrame() {
@@ -222,34 +326,52 @@ final class FloatingClockSession: NSObject, ObservableObject {
         let corrected = settings.corrected(now, offset: sync.offset)
         let dateText = ClockFaceText.dateLine(corrected)
         let timeText = ClockFaceText.timeLine(corrected, milliseconds: settings.showMilliseconds)
-        let scale = max(2, UIScreen.main.scale)
-        let (image, nextLayout) = ClockDrawing.image(
-            settings: settings,
-            dateText: dateText,
-            timeText: timeText,
-            highlighted: highlighted,
-            scale: scale
-        )
-        if nextLayout != layout {
-            layout = nextLayout
-            placeOrigin()
-        }
-        host?.show(image)
         let second = Int(corrected.timeIntervalSince1970)
         if second != lastActivitySecond {
             lastActivitySecond = second
             updateActivity(now: now)
         }
+        // Redraw only when the pixels would change. A 10–30 fps full-buffer upload
+        // on the main thread is what made the PiP window stutter while it was dragged.
+        let key = "\(dateText)\u{1}\(timeText)\u{1}\(highlighted ?? "")\u{1}\(settings.colorHex)\u{1}\(settings.alphaPercent)\u{1}\(settings.fontSize)\u{1}\(settings.showCaptionsInFloat)\u{1}\(settings.captions.joined(separator: "\u{1}"))"
+        if key == lastRenderKey { return }
+        lastRenderKey = key
+        // One bitmap for the card and for PiP, sized to the text so nothing is cropped.
+        // PiP uses the same pixels; videoGravity .resizeAspect keeps that aspect ratio.
+        let (image, nextLayout) = ClockDrawing.image(
+            settings: settings,
+            dateText: dateText,
+            timeText: timeText,
+            highlighted: highlighted,
+            scale: 2,
+            fitToPiP: true
+        )
+        if nextLayout != layout {
+            layout = nextLayout
+            placeOrigin()
+        }
+        lastClockImage = image
+        host?.enqueuePip(image)
+        host?.showCard(image)
+        host?.setChips(nextLayout.chips)
+        host?.layoutIfNeeded()
     }
 
     private func turnOn() {
+        runToken += 1
         isEnabled = true
+        userStopped = false
+        ignoreDismiss = false
+        expectingPipStart = false
+        pipDidStart = false
+        restoreWork?.cancel()
+        restoreWork = nil
         ClockPreferences.setEnabled(true)
         audio.mixWithOthers = settings.mixWithOtherAudio
         do {
             try audio.start()
             statusText = AVPictureInPictureController.isPictureInPictureSupported()
-                ? "悬浮窗运行中。离开此页后会浮在其他 App 上。"
+                ? "已打开。本页只留这一块，离开 App 后它会浮到其他 App 上。"
                 : "已打开。这台设备不能画中画，时钟只显示在本页。"
         } catch {
             statusText = "保活音频没能启动。留在本页可以看时钟，离开后可能停住。"
@@ -257,42 +379,127 @@ final class FloatingClockSession: NSObject, ObservableObject {
         applyIdleTimer()
         updateNowPlaying()
         restartRenderTimer()
+        lastRenderKey = ""
         renderFrame()
         startActivity()
-        startPipSoon()
-    }
-
-    /// The host view is created by SwiftUI on the next layout pass, so PiP has to wait until it exists.
-    private func startPipSoon(attempt: Int = 0) {
-        guard isEnabled else { return }
-        if let host, host.window != nil {
-            host.startPictureInPicture()
-            return
-        }
-        guard attempt < 20 else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            self?.startPipSoon(attempt: attempt + 1)
-        }
     }
 
     private func turnOff() {
+        runToken += 1
+        userStopped = true
         ignoreDismiss = true
+        expectingPipStart = false
+        pipDidStart = false
+        restoreWork?.cancel()
+        restoreWork = nil
         isEnabled = false
         isPipActive = false
+        hidesInAppClock = false
         ClockPreferences.setEnabled(false)
         renderTimer?.invalidate()
         renderTimer = nil
         host?.stopPictureInPicture()
         host = nil
+        lastRenderKey = ""
         audio.stop()
         applyIdleTimer()
         updateNowPlaying()
         endActivities()
         statusText = "悬浮窗已关闭"
         WidgetCenter.shared.reloadAllTimelines()
-        DispatchQueue.main.async { [weak self] in
-            self?.ignoreDismiss = false
+    }
+
+    /// Redraws the green highlight, then saves a screenshot that includes it.
+    private func finishPendingShot() async {
+        guard let pending = CaptionLogger.Pending.load(), finishingShotID != pending.id else { return }
+        finishingShotID = pending.id
+        guard ClockPreferences.loadSettings().screenshotOnCaption else {
+            try? TextLog.append(
+                caption: pending.caption,
+                at: pending.stamped,
+                milliseconds: pending.milliseconds,
+                screenshot: nil
+            )
+            CaptionLogger.Pending.clear()
+            DocumentsMirror.sync()
+            finishingShotID = nil
+            return
         }
+
+        lastRenderKey = ""
+        renderFrame()
+        host?.layoutIfNeeded()
+        let renderedAt = Date()
+        AppIdentity.sharedDefaults.set(renderedAt.timeIntervalSince1970, forKey: "screenshot_after")
+        AppIdentity.sharedDefaults.synchronize()
+
+        var filename: String?
+        if ScreenFrameStore.broadcastIsRunning() {
+            // Keep the newest frame written after the highlight was pushed, up to about 1s.
+            if await ScreenFrameStore.waitForFrame(after: renderedAt.addingTimeInterval(0.2), timeout: 1) != nil {
+                filename = ScreenFrameStore.adoptLatest(
+                    caption: pending.caption,
+                    date: pending.stamped,
+                    enabled: true,
+                    now: Date()
+                )
+            }
+        }
+        if filename == nil, sceneIsActive, !hidesInAppClock {
+            // The caption tap is still inside SwiftUI's update. Snapshotting in that
+            // turn draws an empty bitmap, and JPEG turns the empty pixels white.
+            await waitUntilDrawn()
+            filename = WindowSnapshot.save(
+                caption: pending.caption,
+                date: pending.stamped,
+                afterScreenUpdates: true
+            )
+        }
+        if filename == nil, let clock = lastClockImage {
+            filename = WindowSnapshot.compositeHighlightedClock(
+                clock,
+                caption: pending.caption,
+                date: pending.stamped
+            )
+        }
+
+        try? TextLog.append(
+            caption: pending.caption,
+            at: pending.stamped,
+            milliseconds: pending.milliseconds,
+            screenshot: filename
+        )
+        if let filename {
+            AppIdentity.sharedDefaults.set(filename, forKey: "last_screenshot_name")
+        }
+        CaptionLogger.Pending.clear()
+        AppIdentity.sharedDefaults.synchronize()
+        DocumentsMirror.sync()
+        PhotoLibrarySaver.exportPendingIfNeeded()
+        if let filename {
+            showBanner("已保存截图 \(filename)")
+        }
+        finishingShotID = nil
+    }
+
+    private func scheduleRestore() {
+        guard isEnabled, !userStopped, !sceneIsActive else { return }
+        guard host?.isPictureInPictureActive != true else { return }
+        guard restoreAttempts < 3 else { return }
+        restoreAttempts += 1
+        PipLog.info("PiP schedule restore attempt=\(restoreAttempts)")
+        audio.restartIfNeeded()
+        let delay = 0.35 * Double(restoreAttempts)
+        let token = runToken
+        restoreWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.runToken == token else { return }
+            guard self.isEnabled, !self.userStopped, !self.sceneIsActive else { return }
+            guard self.host?.isPictureInPictureActive != true else { return }
+            self.host?.startPictureInPicture()
+        }
+        restoreWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     private func reloadFromExternal() {
@@ -302,7 +509,9 @@ final class FloatingClockSession: NSObject, ObservableObject {
         refreshSyncLabel()
         reloadSRT()
         DocumentsMirror.sync()
+        PhotoLibrarySaver.exportPendingIfNeeded()
         recomputeLayout()
+        Task { await finishPendingShot() }
         WidgetCenter.shared.reloadAllTimelines()
         if isEnabled && !shouldRun {
             turnOff()
@@ -328,9 +537,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
         renderFrame()
     }
 
-    private var frameInterval: TimeInterval {
-        settings.showMilliseconds ? 1.0 / 30.0 : 0.1
-    }
+    private var frameInterval: TimeInterval { 0.1 }
 
     private func recomputeLayout() {
         let corrected = settings.corrected(Date(), offset: sync.offset)
@@ -346,9 +553,10 @@ final class FloatingClockSession: NSObject, ObservableObject {
     private func placeOrigin() {
         guard viewport.width > 1 else { return }
         if storedOrigin.x < 0 || storedOrigin.y < 0 {
+            // Keep a fresh card off the first settings row, where the on/off switch lives.
             origin = clamp(CGPoint(
-                x: (viewport.width - layout.size.width) / 2,
-                y: viewport.height * 0.06
+                x: viewport.width - layout.size.width - 16,
+                y: viewport.height - layout.size.height - 28
             ))
             return
         }
@@ -422,6 +630,16 @@ final class FloatingClockSession: NSObject, ObservableObject {
         syncStatus = "\(sync.source) · \(direction) · 往返 \(rtt) ms · \(applied)"
     }
 
+    /// Lets the caption highlight land in the window before a snapshot.
+    /// Capturing inside the tap's SwiftUI update produces an empty white bitmap.
+    private func waitUntilDrawn() async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                continuation.resume()
+            }
+        }
+    }
+
     private func showBanner(_ text: String) {
         banner = text
         Task { [weak self] in
@@ -472,15 +690,29 @@ enum DocumentsMirror {
     }
 
     static func sync() {
-        let source = AppIdentity.srtURL.standardizedFileURL
-        let destination = documentsSRT.standardizedFileURL
-        if source == destination { return }
-        if FileManager.default.fileExists(atPath: source.path) {
-            try? FileManager.default.removeItem(at: destination)
-            try? FileManager.default.copyItem(at: source, to: destination)
-        } else if FileManager.default.fileExists(atPath: destination.path) {
-            try? FileManager.default.removeItem(at: destination)
+        let sourceRoot = AppIdentity.storageDirectory.standardizedFileURL
+        let documentsRoot = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(AppIdentity.srtDirectoryName, isDirectory: true)
+            .standardizedFileURL
+        if sourceRoot == documentsRoot { return }
+        try? FileManager.default.createDirectory(at: documentsRoot, withIntermediateDirectories: true)
+        copyFile(named: AppIdentity.srtFileName, from: sourceRoot, to: documentsRoot)
+        copyFile(named: AppIdentity.textLogFileName, from: sourceRoot, to: documentsRoot)
+        let shots = sourceRoot.appendingPathComponent(AppIdentity.screenshotsDirectoryName, isDirectory: true)
+        let shotDest = documentsRoot.appendingPathComponent(AppIdentity.screenshotsDirectoryName, isDirectory: true)
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: shots.path) else { return }
+        try? FileManager.default.createDirectory(at: shotDest, withIntermediateDirectories: true)
+        for name in names where name.hasSuffix(".jpg") {
+            copyFile(named: name, from: shots, to: shotDest)
         }
+    }
+
+    private static func copyFile(named name: String, from sourceDir: URL, to destDir: URL) {
+        let source = sourceDir.appendingPathComponent(name)
+        let destination = destDir.appendingPathComponent(name)
+        guard FileManager.default.fileExists(atPath: source.path) else { return }
+        try? FileManager.default.removeItem(at: destination)
+        try? FileManager.default.copyItem(at: source, to: destination)
     }
 }
 

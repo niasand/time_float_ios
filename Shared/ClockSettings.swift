@@ -10,6 +10,8 @@ struct ClockSettings: Equatable {
     var showCaptionsInFloat: Bool = true
     var keepAwake: Bool = true
     var mixWithOtherAudio: Bool = true
+    var screenshotOnCaption: Bool = false
+    var saveScreenshotsToPhotos: Bool = false
     var armedIndex: Int = 0
 
     static let minAlpha = 20
@@ -54,6 +56,8 @@ enum ClockPreferences {
         static let showCaptions = "show_captions_in_float"
         static let keepAwake = "keep_awake"
         static let mixAudio = "mix_audio"
+        static let screenshotOnCaption = "screenshot_on_caption"
+        static let saveScreenshotsToPhotos = "save_screenshots_to_photos"
         static let armedIndex = "armed_index"
         static let highlightCaption = "highlight_caption"
         static let highlightUntil = "highlight_until"
@@ -98,10 +102,18 @@ enum ClockPreferences {
         if defaults.object(forKey: Key.mixAudio) != nil {
             settings.mixWithOtherAudio = defaults.bool(forKey: Key.mixAudio)
         }
-        settings.captions = loadCaptions()
-        settings.armedIndex = defaults.integer(forKey: Key.armedIndex)
-        if !settings.captions.indices.contains(settings.armedIndex) {
-            settings.armedIndex = 0
+        settings.screenshotOnCaption = defaults.bool(forKey: Key.screenshotOnCaption)
+        settings.saveScreenshotsToPhotos = defaults.bool(forKey: Key.saveScreenshotsToPhotos)
+        let stored = loadCaptions()
+        settings.captions = CaptionRules.defaults
+        settings.armedIndex = 0
+        if stored != CaptionRules.defaults || defaults.integer(forKey: Key.armedIndex) != 0 {
+            if let data = try? JSONEncoder().encode(CaptionRules.defaults) {
+                defaults.set(data, forKey: Key.captions)
+            }
+            defaults.set(0, forKey: Key.armedIndex)
+            defaults.set(true, forKey: Key.seeded)
+            defaults.synchronize()
         }
         return settings
     }
@@ -110,10 +122,8 @@ enum ClockPreferences {
         var settings = settings
         settings.alphaPercent = min(ClockSettings.maxAlpha, max(ClockSettings.minAlpha, settings.alphaPercent))
         settings.fontSize = min(ClockSettings.maxFont, max(ClockSettings.minFont, settings.fontSize))
-        settings.captions = CaptionRules.sanitized(settings.captions)
-        if !settings.captions.indices.contains(settings.armedIndex) {
-            settings.armedIndex = 0
-        }
+        settings.captions = CaptionRules.defaults
+        settings.armedIndex = 0
         defaults.set(settings.colorHex, forKey: Key.color)
         defaults.set(settings.alphaPercent, forKey: Key.alpha)
         defaults.set(settings.fontSize, forKey: Key.font)
@@ -122,6 +132,8 @@ enum ClockPreferences {
         defaults.set(settings.showCaptionsInFloat, forKey: Key.showCaptions)
         defaults.set(settings.keepAwake, forKey: Key.keepAwake)
         defaults.set(settings.mixWithOtherAudio, forKey: Key.mixAudio)
+        defaults.set(settings.screenshotOnCaption, forKey: Key.screenshotOnCaption)
+        defaults.set(settings.saveScreenshotsToPhotos, forKey: Key.saveScreenshotsToPhotos)
         defaults.set(settings.armedIndex, forKey: Key.armedIndex)
         if let data = try? JSONEncoder().encode(settings.captions) {
             defaults.set(data, forKey: Key.captions)

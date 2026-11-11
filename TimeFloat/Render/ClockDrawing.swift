@@ -23,6 +23,21 @@ enum ClockDrawing {
     private static let chipPadX: CGFloat = 10
     private static let chipPadY: CGFloat = 4
 
+    /// Largest point size that still fits the clock and every caption inside a PiP-friendly box.
+    static func fittedSettings(_ settings: ClockSettings, dateText: String, timeText: String, highlighted: String?) -> ClockSettings {
+        var tuned = settings
+        let maxWidth: CGFloat = 460
+        let maxHeight: CGFloat = 360
+        while tuned.fontSize > ClockSettings.minFont {
+            let candidate = layout(settings: tuned, dateText: dateText, timeText: timeText, highlighted: highlighted)
+            if candidate.size.width <= maxWidth && candidate.size.height <= maxHeight {
+                break
+            }
+            tuned.fontSize -= 1
+        }
+        return tuned
+    }
+
     static func layout(settings: ClockSettings, dateText: String, timeText: String, highlighted: String?) -> ClockLayout {
         let timeFont = UIFont.monospacedDigitSystemFont(ofSize: CGFloat(settings.fontSize), weight: .bold)
         let dateFont = UIFont.monospacedDigitSystemFont(ofSize: CGFloat(settings.fontSize) * 0.55, weight: .regular)
@@ -84,19 +99,24 @@ enum ClockDrawing {
         dateText: String,
         timeText: String,
         highlighted: String?,
-        scale: CGFloat
+        scale: CGFloat,
+        fitToPiP: Bool = false
     ) -> (UIImage, ClockLayout) {
+        let settings = fitToPiP
+            ? fittedSettings(settings, dateText: dateText, timeText: timeText, highlighted: highlighted)
+            : settings
         let layout = layout(settings: settings, dateText: dateText, timeText: timeText, highlighted: highlighted)
         let base = RGB.from(hex: settings.colorHex)
-        let blended = base.blendedOverBlack(alpha: Double(settings.alphaPercent) / 100)
-        let background = uiColor(blended)
+        let backgroundAlpha = CGFloat(settings.alphaPercent) / 100
+        let background = uiColor(base, alpha: backgroundAlpha)
         let textColor: UIColor = base.prefersDarkText ? .black : .white
         let chipPoint = max(9, CGFloat(settings.fontSize) * 0.5)
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale
-        format.opaque = true
+        format.opaque = false
         let renderer = UIGraphicsImageRenderer(size: layout.size, format: format)
         let image = renderer.image { context in
+            context.cgContext.clear(CGRect(origin: .zero, size: layout.size))
             background.setFill()
             context.fill(CGRect(origin: .zero, size: layout.size))
 
@@ -136,27 +156,28 @@ enum ClockDrawing {
     private static func draw(_ text: String, in rect: CGRect, font: UIFont, color: UIColor, alignment: NSTextAlignment) {
         let style = NSMutableParagraphStyle()
         style.alignment = alignment
+        style.lineBreakMode = .byClipping
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: color,
             .paragraphStyle: style
         ]
         let bounds = (text as NSString).boundingRect(
-            with: rect.size,
+            with: CGSize(width: rect.width, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             attributes: attributes,
             context: nil
         )
         let origin = CGRect(
             x: rect.minX,
-            y: rect.minY + (rect.height - ceil(bounds.height)) / 2,
+            y: rect.minY + max(0, (rect.height - ceil(bounds.height)) / 2),
             width: rect.width,
-            height: ceil(bounds.height)
+            height: min(rect.height, ceil(bounds.height))
         )
         (text as NSString).draw(in: origin, withAttributes: attributes)
     }
 
-    private static func uiColor(_ rgb: RGB) -> UIColor {
-        UIColor(red: rgb.r, green: rgb.g, blue: rgb.b, alpha: 1)
+    private static func uiColor(_ rgb: RGB, alpha: CGFloat = 1) -> UIColor {
+        UIColor(red: rgb.r, green: rgb.g, blue: rgb.b, alpha: alpha)
     }
 }

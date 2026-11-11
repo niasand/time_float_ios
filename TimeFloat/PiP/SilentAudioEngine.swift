@@ -8,7 +8,12 @@ final class SilentAudioEngine {
     private var player: AVAudioPlayer?
     private var interruptionObserver: NSObjectProtocol?
     private(set) var isRunning = false
+    var isPlaying: Bool { isRunning && player?.isPlaying == true }
     var mixWithOthers = true
+    var onInterrupted: (() -> Void)?
+    var onRecovered: (() -> Void)?
+    private var routeObserver: NSObjectProtocol?
+    private var resetObserver: NSObjectProtocol?
 
     func start() throws {
         try configureSession()
@@ -34,13 +39,27 @@ final class SilentAudioEngine {
             NotificationCenter.default.removeObserver(interruptionObserver)
             self.interruptionObserver = nil
         }
+        if let routeObserver {
+            NotificationCenter.default.removeObserver(routeObserver)
+            self.routeObserver = nil
+        }
+        if let resetObserver {
+            NotificationCenter.default.removeObserver(resetObserver)
+            self.resetObserver = nil
+        }
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
     }
 
     func restartIfNeeded() {
         guard isRunning else { return }
+        if player == nil {
+            try? start()
+            return
+        }
         try? configureSession()
-        player?.play()
+        if player?.isPlaying != true {
+            player?.play()
+        }
     }
 
     private func configureSession() throws {
@@ -61,9 +80,29 @@ final class SilentAudioEngine {
             guard let self else { return }
             let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
             let type = raw.flatMap { AVAudioSession.InterruptionType(rawValue: $0) }
-            if type == .ended {
+            if type == .began {
+                self.onInterrupted?()
+            } else if type == .ended {
                 self.restartIfNeeded()
+                self.onRecovered?()
             }
+        }
+        routeObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] _ in
+            self?.restartIfNeeded()
+            self?.onRecovered?()
+        }
+        resetObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.mediaServicesWereResetNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] _ in
+            self?.player = nil
+            self?.restartIfNeeded()
+            self?.onRecovered?()
         }
     }
 

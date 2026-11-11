@@ -78,26 +78,37 @@ private struct ClockWidgetView: View {
         switch family {
         case .accessoryInline:
             Text(ClockFaceText.timeLine(entry.date, milliseconds: false))
+                .multilineTextAlignment(.center)
         case .accessoryCircular:
             Text(ClockFaceText.timeLine(entry.date, milliseconds: false))
                 .font(.headline.bold())
                 .monospacedDigit()
                 .minimumScaleFactor(0.4)
+                .lineLimit(1)
                 .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         case .accessoryRectangular:
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(spacing: 2) {
                 Text(ClockFaceText.dateLine(entry.date))
                     .font(.caption2)
+                    .multilineTextAlignment(.center)
                 Text(ClockFaceText.timeLine(entry.date, milliseconds: false))
                     .font(.headline.bold())
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .multilineTextAlignment(.center)
                 Button(intent: LogArmedCaptionIntent()) {
                     Text(recordTitle)
                         .font(.caption2)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.plain)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         case .systemMedium:
             HStack {
                 VStack(alignment: .leading, spacing: 6) {

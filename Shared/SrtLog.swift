@@ -59,20 +59,67 @@ enum CaptionLogger {
     static let highlightSeconds: TimeInterval = 3
 
     @discardableResult
-    static func log(caption: String, now: Date = Date()) -> String? {
+    static func log(caption: String, now: Date = Date(), screenshotFilename: String? = nil) -> String? {
         let text = caption.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "字幕不能为空" }
         let settings = ClockPreferences.loadSettings()
         let sync = ClockPreferences.loadSync()
         let stamped = settings.corrected(now, offset: sync.offset)
+        // Highlight before any capture so the next PiP frame and the in-app card show green.
+        ClockPreferences.setHighlight(caption: text, until: Date().addingTimeInterval(highlightSeconds))
         do {
             try SrtLog.append(caption: text, at: stamped, milliseconds: settings.showMilliseconds)
         } catch {
             return "SRT 写入失败"
         }
-        ClockPreferences.setHighlight(caption: text, until: Date().addingTimeInterval(highlightSeconds))
+        if settings.screenshotOnCaption {
+            // The running app redraws, then writes time_float.txt with the screenshot name.
+            let defaults = AppIdentity.sharedDefaults
+            defaults.set(text, forKey: Key.caption)
+            defaults.set(stamped.timeIntervalSince1970, forKey: Key.stamped)
+            defaults.set(settings.showMilliseconds, forKey: Key.milliseconds)
+            defaults.set(UUID().uuidString, forKey: Key.id)
+            defaults.synchronize()
+        } else {
+            try? TextLog.append(caption: text, at: stamped, milliseconds: settings.showMilliseconds, screenshot: screenshotFilename)
+        }
         DarwinBridge.post()
         return nil
+    }
+
+    enum Key {
+        static let caption = "pending_caption"
+        static let stamped = "pending_stamped"
+        static let milliseconds = "pending_ms"
+        static let id = "pending_id"
+    }
+
+    struct Pending {
+        var id: String
+        var caption: String
+        var stamped: Date
+        var milliseconds: Bool
+
+        static func load() -> Pending? {
+            let defaults = AppIdentity.sharedDefaults
+            guard let id = defaults.string(forKey: Key.id), !id.isEmpty,
+                  let caption = defaults.string(forKey: Key.caption), !caption.isEmpty else { return nil }
+            return Pending(
+                id: id,
+                caption: caption,
+                stamped: Date(timeIntervalSince1970: defaults.double(forKey: Key.stamped)),
+                milliseconds: defaults.bool(forKey: Key.milliseconds)
+            )
+        }
+
+        static func clear() {
+            let defaults = AppIdentity.sharedDefaults
+            defaults.removeObject(forKey: Key.id)
+            defaults.removeObject(forKey: Key.caption)
+            defaults.removeObject(forKey: Key.stamped)
+            defaults.removeObject(forKey: Key.milliseconds)
+            defaults.synchronize()
+        }
     }
 
     @discardableResult

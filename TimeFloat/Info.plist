@@ -15,7 +15,9 @@
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
-	<string>APPL</string>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>MinimumOSVersion</key>
+	<string>$(IPHONEOS_DEPLOYMENT_TARGET)</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleURLTypes</key>
@@ -37,8 +39,12 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>把点字幕时保存的截图写入照片图库。</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>TimeFloatBroadcastBundle</key>
+	<string>$(BROADCAST_BUNDLE_ID)</string>
 	<key>TimeFloatAppGroup</key>
 	<string>$(APP_GROUP_ID)</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

@@ -3,14 +3,15 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject private var session: FloatingClockSession
     @Environment(\.scenePhase) private var scenePhase
-    @State private var dragBase: CGPoint?
-
     var body: some View {
         ZStack(alignment: .topLeading) {
             SettingsView()
             if session.isEnabled {
-                floatingCard
-                    .offset(x: session.origin.x, y: session.origin.y)
+                // Do not fade this view. Its sample-buffer layer is the PiP source and must stay
+                // at alpha 1 in the window. The in-app drawing is hidden separately once PiP is up.
+                FloatingOverlayRepresentable(session: session)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(!session.hidesInAppClock)
             }
             if let banner = session.banner {
                 VStack {
@@ -41,57 +42,47 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 session.sceneBecameActive()
-            } else if phase == .background {
+            } else if phase == .inactive || phase == .background {
                 session.sceneWentBackground()
             }
         }
     }
 
-    private var floatingCard: some View {
-        ZStack(alignment: .topLeading) {
-            PipHostRepresentable(session: session)
-            ForEach(session.layout.chips, id: \.caption) { chip in
-                Button {
-                    session.logCaption(chip.caption)
-                } label: {
-                    Color.white.opacity(0.001)
-                }
-                .buttonStyle(.plain)
-                .frame(width: chip.rect.width, height: chip.rect.height)
-                .offset(x: chip.rect.minX, y: chip.rect.minY)
-            }
-        }
-        .frame(width: session.layout.size.width, height: session.layout.size.height)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: .black.opacity(0.28), radius: 12, y: 5)
-        .gesture(
-            DragGesture(minimumDistance: 12)
-                .onChanged { value in
-                    if dragBase == nil { dragBase = session.origin }
-                    session.move(to: CGPoint(
-                        x: (dragBase?.x ?? 0) + value.translation.width,
-                        y: (dragBase?.y ?? 0) + value.translation.height
-                    ))
-                }
-                .onEnded { _ in
-                    dragBase = nil
-                    session.finishMove()
-                }
-        )
-        .accessibilityLabel("悬浮时钟")
-    }
 }
 
-struct PipHostRepresentable: UIViewRepresentable {
+struct FloatingOverlayRepresentable: UIViewRepresentable {
     let session: FloatingClockSession
 
-    func makeUIView(context: Context) -> PipHostView {
-        let view = PipHostView()
-        session.attach(host: view)
+    func makeUIView(context: Context) -> FloatingOverlayView {
+        let view = FloatingOverlayView()
+        view.clamp = { [weak session] point in
+            session?.clampedOrigin(point) ?? point
+        }
+        view.onMoveEnd = { [weak session] origin in
+            session?.move(to: origin)
+            session?.finishMove()
+        }
+        view.card.onCaptionTap = { [weak session] caption in
+            session?.logCaption(caption)
+        }
+        session.attach(host: view.card)
+        session.attachOverlay(view)
+        view.place(origin: session.origin, size: session.layout.size)
+        view.card.setChips(session.layout.chips)
+        view.card.setInlineChromeHidden(session.hidesInAppClock)
         return view
     }
 
-    func updateUIView(_ uiView: PipHostView, context: Context) {
-        session.attach(host: uiView)
+    func updateUIView(_ uiView: FloatingOverlayView, context: Context) {
+        session.attach(host: uiView.card)
+        session.attachOverlay(uiView)
+        uiView.clamp = { [weak session] point in
+            session?.clampedOrigin(point) ?? point
+        }
+        if !uiView.isDragging {
+            uiView.place(origin: session.origin, size: session.layout.size)
+        }
+        uiView.card.setChips(session.layout.chips)
+        uiView.card.setInlineChromeHidden(session.hidesInAppClock)
     }
 }

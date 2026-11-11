@@ -39,6 +39,16 @@ enum ClockFaceText {
         return "\(day) \(clock)：\(caption)\n"
     }
 
+    /// Same timestamp and caption as the SRT line. A screenshot filename, when present, is appended after a space.
+    static func textLogLine(date: Date, caption: String, milliseconds: Bool, screenshot: String?) -> String {
+        let base = srtLine(date: date, caption: caption, milliseconds: milliseconds)
+            .trimmingCharacters(in: .newlines)
+        if let screenshot, !screenshot.isEmpty {
+            return base + " " + screenshot + "\n"
+        }
+        return base + "\n"
+    }
+
     static func offsetLine(useNetworkTime: Bool, offset: TimeInterval) -> String {
         let ms = Int((offset * 1000).rounded())
         if !useNetworkTime { return "设备时间" }

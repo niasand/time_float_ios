@@ -6,6 +6,7 @@ struct TimeFloatShortcuts: AppShortcutsProvider {
             intent: LogArmedCaptionIntent(),
             phrases: [
                 "用\(.applicationName)记录字幕",
+                "用\(.applicationName)记录状态变化时间点",
                 "用\(.applicationName)记一条"
             ],
             shortTitle: "记录字幕",

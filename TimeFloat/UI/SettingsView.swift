@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var session: FloatingClockSession
-    @State private var draftCaption = ""
     @State private var confirmClear = false
 
     private var srtFileURL: URL { AppIdentity.srtURL }
@@ -22,8 +21,8 @@ struct SettingsView: View {
                     appearanceSection
                     timeSection
                     captionSection
+                    screenshotSection
                     srtSection
-                    helpSection
                 }
                 .padding(16)
             }
@@ -67,6 +66,12 @@ struct SettingsView: View {
                 set: { session.setEnabled($0) }
             ))
             .font(.body.weight(.semibold))
+            .background(
+                WindowFrameProbe { frame in
+                    session.noteSwitchFrame(frame)
+                }
+                .allowsHitTesting(false)
+            )
             if session.isPipActive {
                 Label("画中画正在其他 App 上层", systemImage: "pip")
                     .font(.footnote)
@@ -163,40 +168,36 @@ struct SettingsView: View {
         card {
             Text("字幕标记")
                 .font(.headline)
-            Text("最多 \(CaptionRules.maxCount) 条，每条最多 \(CaptionRules.maxLength) 个字。点悬浮卡片上的字幕，或点下面的「记录」，都会高亮 3 秒并追加一条 SRT。外部按钮记录带星的那条。")
+            Text("只有一条：「\(CaptionRules.fixedCaption)」。点悬浮卡片上的字幕，或点下面的「记录」，都会高亮 3 秒并写入 SRT 和 time_float.txt。锁屏、灵动岛、快捷指令和控制中心记的也是这一条。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            HStack(spacing: 8) {
-                TextField("输入字幕，如 停车前", text: $draftCaption)
-                    .textFieldStyle(.roundedBorder)
-                    .submitLabel(.done)
-                    .onSubmit(addDraft)
-                Button("添加", action: addDraft)
-                    .buttonStyle(.borderedProminent)
-            }
-            if session.settings.captions.isEmpty {
-                Text("还没有字幕。")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(session.settings.captions, id: \.self) { caption in
-                HStack(spacing: 8) {
-                    Button {
-                        session.arm(caption)
-                    } label: {
-                        Image(systemName: caption == session.settings.armedCaption ? "star.fill" : "star")
-                            .foregroundStyle(caption == session.settings.armedCaption ? Color.orange : Color.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(caption == session.settings.armedCaption ? "当前外部记录" : "设为外部记录")
-                    Text(caption)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Button("记录") { session.logCaption(caption) }
-                        .buttonStyle(.bordered)
-                    Button("删除") { session.deleteCaption(caption) }
-                        .buttonStyle(.bordered)
-                        .tint(.red)
+            Button("记录") { session.logCaption(CaptionRules.fixedCaption) }
+                .buttonStyle(.borderedProminent)
+        }
+    }
+
+    private var broadcastBundleID: String {
+        let raw = Bundle.main.object(forInfoDictionaryKey: "TimeFloatBroadcastBundle") as? String
+        if let raw, !raw.isEmpty, !raw.contains("$") { return raw }
+        return "com.yourname.timefloat.broadcast"
+    }
+
+    private var screenshotSection: some View {
+        card {
+            Text("点字幕截屏")
+                .font(.headline)
+            Toggle("点字幕时保存截图", isOn: binding(\.screenshotOnCaption))
+            Text("系统不允许 App 自己截别的 App 或主屏幕。要截全屏，请打开上面的开关，点下面的广播按钮，在系统面板里开始「悬浮时钟」的屏幕广播，并保持它开着。之后每次点字幕，会把最近一帧存进文件 App。广播没开时，只有在本 App 里点字幕才会截本 App 自己的画面。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            if session.settings.screenshotOnCaption {
+                HStack(spacing: 12) {
+                    BroadcastPicker(extensionBundleID: broadcastBundleID)
+                        .frame(width: 48, height: 48)
+                    Text("点此开始或停止屏幕广播")
+                        .font(.subheadline)
                 }
+                Toggle("截图也存到照片", isOn: binding(\.saveScreenshotsToPhotos))
             }
         }
     }
@@ -205,7 +206,7 @@ struct SettingsView: View {
         card {
             Text("SRT 记录")
                 .font(.headline)
-            Text("共 \(session.srtCount) 条。文件名 road_test_srt.srt。在「文件」App 的「我的 iPhone / 悬浮时钟 / TimeFloat」里。")
+            Text("共 \(session.srtCount) 条。同目录还有 time_float.txt。在「文件」App 的「我的 iPhone / 悬浮时钟 / TimeFloat」里。截图在其中的 Screenshots。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             HStack {
@@ -229,24 +230,6 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
             }
-        }
-    }
-
-    private var helpSection: some View {
-        card {
-            Text("和 Android 版的差别")
-                .font(.headline)
-            Text("iOS 不允许 App 自己画一个盖住其他 App 的窗口。这里用系统画中画来浮着：可以拖、可以捏合缩放，位置由系统记住。画中画里的字幕点不到，改用本页按钮、锁屏实时活动、主屏幕小组件、控制中心（iOS 18）或快捷指令。点画中画的回到 App，相当于原版点一下时钟。点画中画的关闭，会关掉悬浮。重启手机后不会自动打开，需要再进一次本 App。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func addDraft() {
-        let trimmed = draftCaption.trimmingCharacters(in: .whitespacesAndNewlines)
-        session.addCaption(draftCaption)
-        if session.settings.captions.contains(trimmed) {
-            draftCaption = ""
         }
     }
 
