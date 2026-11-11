@@ -104,10 +104,16 @@ enum ClockPreferences {
         }
         settings.screenshotOnCaption = defaults.bool(forKey: Key.screenshotOnCaption)
         settings.saveScreenshotsToPhotos = defaults.bool(forKey: Key.saveScreenshotsToPhotos)
-        settings.captions = loadCaptions()
-        settings.armedIndex = defaults.integer(forKey: Key.armedIndex)
-        if !settings.captions.indices.contains(settings.armedIndex) {
-            settings.armedIndex = 0
+        let stored = loadCaptions()
+        settings.captions = CaptionRules.defaults
+        settings.armedIndex = 0
+        if stored != CaptionRules.defaults || defaults.integer(forKey: Key.armedIndex) != 0 {
+            if let data = try? JSONEncoder().encode(CaptionRules.defaults) {
+                defaults.set(data, forKey: Key.captions)
+            }
+            defaults.set(0, forKey: Key.armedIndex)
+            defaults.set(true, forKey: Key.seeded)
+            defaults.synchronize()
         }
         return settings
     }
@@ -116,10 +122,8 @@ enum ClockPreferences {
         var settings = settings
         settings.alphaPercent = min(ClockSettings.maxAlpha, max(ClockSettings.minAlpha, settings.alphaPercent))
         settings.fontSize = min(ClockSettings.maxFont, max(ClockSettings.minFont, settings.fontSize))
-        settings.captions = CaptionRules.sanitized(settings.captions)
-        if !settings.captions.indices.contains(settings.armedIndex) {
-            settings.armedIndex = 0
-        }
+        settings.captions = CaptionRules.defaults
+        settings.armedIndex = 0
         defaults.set(settings.colorHex, forKey: Key.color)
         defaults.set(settings.alphaPercent, forKey: Key.alpha)
         defaults.set(settings.fontSize, forKey: Key.font)

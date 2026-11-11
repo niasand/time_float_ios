@@ -216,26 +216,6 @@ final class FloatingClockSession: NSObject, ObservableObject {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
-    func addCaption(_ raw: String) {
-        switch CaptionRules.adding(raw, to: settings.captions) {
-        case .success(let list):
-            updateSettings { $0.captions = list }
-        case .failure(let error):
-            showBanner(error.message)
-        }
-    }
-
-    func deleteCaption(_ caption: String) {
-        updateSettings { settings in
-            settings.captions.removeAll { $0 == caption }
-        }
-    }
-
-    func arm(_ caption: String) {
-        guard let index = settings.captions.firstIndex(of: caption) else { return }
-        updateSettings { $0.armedIndex = index }
-    }
-
     func logCaption(_ caption: String) {
         if let error = CaptionLogger.log(caption: caption) {
             showBanner(error)
@@ -325,9 +305,7 @@ final class FloatingClockSession: NSObject, ObservableObject {
         host.onRecordArmed = { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
-                let caption = self.settings.armedCaption
-                guard !caption.isEmpty else { return }
-                self.logCaption(caption)
+                self.logCaption(CaptionRules.fixedCaption)
             }
         }
         host.onFailed = { [weak self] message in

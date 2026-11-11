@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var session: FloatingClockSession
-    @State private var draftCaption = ""
     @State private var confirmClear = false
 
     private var srtFileURL: URL { AppIdentity.srtURL }
@@ -169,41 +168,11 @@ struct SettingsView: View {
         card {
             Text("字幕标记")
                 .font(.headline)
-            Text("最多 \(CaptionRules.maxCount) 条，每条最多 \(CaptionRules.maxLength) 个字。点悬浮卡片上的字幕，或点下面的「记录」，都会高亮 3 秒并追加一条 SRT。外部按钮记录带星的那条。")
+            Text("只有一条：「\(CaptionRules.fixedCaption)」。点悬浮卡片上的字幕，或点下面的「记录」，都会高亮 3 秒并写入 SRT 和 time_float.txt。锁屏、灵动岛、快捷指令和控制中心记的也是这一条。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            HStack(spacing: 8) {
-                TextField("输入字幕，如 停车前", text: $draftCaption)
-                    .textFieldStyle(.roundedBorder)
-                    .submitLabel(.done)
-                    .onSubmit(addDraft)
-                Button("添加", action: addDraft)
-                    .buttonStyle(.borderedProminent)
-            }
-            if session.settings.captions.isEmpty {
-                Text("还没有字幕。")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(session.settings.captions, id: \.self) { caption in
-                HStack(spacing: 8) {
-                    Button {
-                        session.arm(caption)
-                    } label: {
-                        Image(systemName: caption == session.settings.armedCaption ? "star.fill" : "star")
-                            .foregroundStyle(caption == session.settings.armedCaption ? Color.orange : Color.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(caption == session.settings.armedCaption ? "当前外部记录" : "设为外部记录")
-                    Text(caption)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Button("记录") { session.logCaption(caption) }
-                        .buttonStyle(.bordered)
-                    Button("删除") { session.deleteCaption(caption) }
-                        .buttonStyle(.bordered)
-                        .tint(.red)
-                }
-            }
+            Button("记录") { session.logCaption(CaptionRules.fixedCaption) }
+                .buttonStyle(.borderedProminent)
         }
     }
 
@@ -261,14 +230,6 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
             }
-        }
-    }
-
-    private func addDraft() {
-        let trimmed = draftCaption.trimmingCharacters(in: .whitespacesAndNewlines)
-        session.addCaption(draftCaption)
-        if session.settings.captions.contains(trimmed) {
-            draftCaption = ""
         }
     }
 

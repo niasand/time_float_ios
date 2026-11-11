@@ -25,37 +25,6 @@ enum CaptionRecording {
     }
 }
 
-/// A user caption stored in the App Group. App Shortcut phrases can only fill in
-/// `AppEntity` or `AppEnum` parameters, so the named-caption shortcut uses this type.
-struct CaptionEntity: AppEntity {
-    var id: String
-    var title: String
-
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "字幕")
-    static var defaultQuery = CaptionEntityQuery()
-
-    var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: LocalizedStringResource(stringLiteral: title))
-    }
-}
-
-struct CaptionEntityQuery: EnumerableEntityQuery {
-    func entities(for identifiers: [CaptionEntity.ID]) async throws -> [CaptionEntity] {
-        let known = Self.stored()
-        return identifiers.map { identifier in
-            known.first { $0.id == identifier } ?? CaptionEntity(id: identifier, title: identifier)
-        }
-    }
-
-    func allEntities() async throws -> [CaptionEntity] {
-        Self.stored()
-    }
-
-    private static func stored() -> [CaptionEntity] {
-        ClockPreferences.loadSettings().captions.map { CaptionEntity(id: $0, title: $0) }
-    }
-}
-
 /// Runs inside the widget extension as well as the app, so it works from the Lock Screen,
 /// Dynamic Island, Home Screen widget, Control Center, and Shortcuts without a push entitlement.
 struct LogArmedCaptionIntent: LiveActivityIntent {
@@ -65,10 +34,7 @@ struct LogArmedCaptionIntent: LiveActivityIntent {
     static var authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let caption = ClockPreferences.loadSettings().armedCaption
-        guard !caption.isEmpty else {
-            return .result(dialog: "还没有字幕")
-        }
+        let caption = CaptionRules.fixedCaption
         await CaptionRecording.record(caption)
         await Self.refreshActivities()
         return .result(dialog: "已记录 \(caption)")
@@ -80,19 +46,6 @@ struct LogArmedCaptionIntent: LiveActivityIntent {
         for activity in Activity<ClockActivityAttributes>.activities {
             await activity.update(content)
         }
-    }
-}
-
-struct CycleCaptionIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "切换下一条字幕"
-    static var description = IntentDescription("切换外部按钮将要记录的字幕。")
-    static var openAppWhenRun: Bool = false
-    static var authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
-
-    func perform() async throws -> some IntentResult {
-        CaptionLogger.cycleArmed()
-        await LogArmedCaptionIntent.refreshActivities()
-        return .result()
     }
 }
 
@@ -112,35 +65,3 @@ struct StopFloatingIntent: LiveActivityIntent {
     }
 }
 
-/// One Live Activity button per caption, and the Shortcuts action that takes a caption parameter.
-struct LogCaptionIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "记录指定字幕"
-    static var description = IntentDescription("把一条指定字幕追加到 SRT 日志。")
-    static var openAppWhenRun: Bool = false
-    static var authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
-
-    @Parameter(title: "字幕")
-    var caption: CaptionEntity
-
-    static var parameterSummary: some ParameterSummary {
-        Summary("记录 \(\.$caption)")
-    }
-
-    init() {
-        caption = CaptionEntity(id: "", title: "")
-    }
-
-    init(caption: String) {
-        self.caption = CaptionEntity(id: caption, title: caption)
-    }
-
-    func perform() async throws -> some IntentResult & ProvidesDialog {
-        let text = caption.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else {
-            return .result(dialog: "还没有字幕")
-        }
-        await CaptionRecording.record(text)
-        await LogArmedCaptionIntent.refreshActivities()
-        return .result(dialog: "已记录 \(text)")
-    }
-}

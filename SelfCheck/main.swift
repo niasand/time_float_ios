@@ -7,10 +7,8 @@ func check(_ condition: Bool, _ message: String) {
 }
 
 let defaults = CaptionRules.defaults
-check(defaults.count == 12, "default caption count")
+check(defaults == ["状态变化时间点"], "single default caption")
 check(defaults.allSatisfy { $0.count <= CaptionRules.maxLength }, "default caption length")
-check(defaults.first == "进入地下停车场前", "first default caption")
-check(defaults.last == "离开地面停车场后", "last default caption")
 
 func failed(_ result: Result<[String], CaptionRules.AddError>, _ error: CaptionRules.AddError) -> Bool {
     if case .failure(let got) = result { return got == error }

@@ -4,15 +4,9 @@ enum CaptionRules {
     static let maxCount = 16
     static let maxLength = 12
 
-    /// First-install road-test markers from the Android app. Once the user edits the list, theirs is kept.
-    static let defaults: [String] = [
-        "进入地下停车场前", "进入地下停车场后",
-        "离开地下停车场前", "离开地下停车场后",
-        "路边停车前", "路边停车后",
-        "路边起步前", "路边起步后",
-        "进入地面停车场前", "进入地面停车场后",
-        "离开地面停车场前", "离开地面停车场后"
-    ]
+    /// The only caption. Saved lists are rewritten to this on load.
+    static let fixedCaption = "状态变化时间点"
+    static let defaults: [String] = [fixedCaption]
 
     enum AddError: Error, Equatable {
         case empty
