@@ -55,6 +55,13 @@ final class FloatingClockSession: NSObject, ObservableObject {
     var switchFrameInWindow: CGRect = .zero
     private var darwin: DarwinObserver?
 
+    override init() {
+        super.init()
+        CaptionRecording.box.handler = { [weak self] caption in
+            self?.logCaption(caption)
+        }
+    }
+
     func bootstrap() {
         guard !bootstrapped else { return }
         bootstrapped = true
@@ -313,6 +320,14 @@ final class FloatingClockSession: NSObject, ObservableObject {
             Task { @MainActor in
                 self?.audioInterrupted = false
                 self?.scheduleRestore()
+            }
+        }
+        host.onRecordArmed = { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                let caption = self.settings.armedCaption
+                guard !caption.isEmpty else { return }
+                self.logCaption(caption)
             }
         }
         host.onFailed = { [weak self] message in

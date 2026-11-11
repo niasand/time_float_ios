@@ -35,6 +35,10 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
     private var chipButtons: [UIButton] = []
     private var appliedChips: [ChipFrame] = []
     var onCaptionTap: ((String) -> Void)?
+    /// PiP's own play/pause control. The window stays in the playing state.
+    var onRecordArmed: (() -> Void)?
+    private var ignorePlaybackUntil = Date.distantPast
+    private var lastPlaybackRecord = Date.distantPast
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -250,6 +254,7 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
 
     func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
         startRequested = false
+        ignorePlaybackUntil = Date().addingTimeInterval(1.2)
         PipLog.info("PiP did start")
         onActiveChange?(true)
     }
@@ -284,7 +289,17 @@ final class PipHostView: UIView, AVPictureInPictureControllerDelegate, AVPicture
     }
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, setPlaying playing: Bool) {
-        // The clock is not a pauseable video. Keep reporting playback so the system does not freeze the window.
+        // Tapping the system control calls this. Keep reporting "playing" so the window never looks paused.
+        // Ignore the call that arrives as PiP appears; that one is not a caption tap.
+        let now = Date()
+        guard now >= ignorePlaybackUntil else {
+            PipLog.info("PiP playback control ignored during startup")
+            return
+        }
+        guard now.timeIntervalSince(lastPlaybackRecord) > 0.9 else { return }
+        lastPlaybackRecord = now
+        PipLog.info("PiP playback control records the selected caption")
+        onRecordArmed?()
     }
 
     func pictureInPictureControllerTimeRangeForPlayback(_ pictureInPictureController: AVPictureInPictureController) -> CMTimeRange {

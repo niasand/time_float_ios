@@ -10,6 +10,6 @@ struct LogCaptionControl: ControlWidget {
             }
         }
         .displayName("记录字幕")
-        .description("把悬浮时钟当前选中的字幕写入 SRT。")
+        .description("把悬浮时钟当前选中的字幕写入 SRT 和 time_float.txt。")
     }
 }
