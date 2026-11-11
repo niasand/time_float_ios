@@ -25,9 +25,34 @@ enum CaptionRecording {
     }
 }
 
-struct CaptionStringOptions: DynamicOptionsProvider {
-    func results() async throws -> [String] {
-        ClockPreferences.loadSettings().captions
+/// A user caption stored in the App Group. App Shortcut phrases can only fill in
+/// `AppEntity` or `AppEnum` parameters, so the named-caption shortcut uses this type.
+struct CaptionEntity: AppEntity {
+    var id: String
+    var title: String
+
+    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "字幕")
+    static var defaultQuery = CaptionEntityQuery()
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: LocalizedStringResource(stringLiteral: title))
+    }
+}
+
+struct CaptionEntityQuery: EnumerableEntityQuery {
+    func entities(for identifiers: [CaptionEntity.ID]) async throws -> [CaptionEntity] {
+        let known = Self.stored()
+        return identifiers.map { identifier in
+            known.first { $0.id == identifier } ?? CaptionEntity(id: identifier, title: identifier)
+        }
+    }
+
+    func allEntities() async throws -> [CaptionEntity] {
+        Self.stored()
+    }
+
+    private static func stored() -> [CaptionEntity] {
+        ClockPreferences.loadSettings().captions.map { CaptionEntity(id: $0, title: $0) }
     }
 }
 
@@ -94,23 +119,23 @@ struct LogCaptionIntent: LiveActivityIntent {
     static var openAppWhenRun: Bool = false
     static var authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
-    @Parameter(title: "字幕", optionsProvider: CaptionStringOptions())
-    var caption: String
+    @Parameter(title: "字幕")
+    var caption: CaptionEntity
 
     static var parameterSummary: some ParameterSummary {
         Summary("记录 \(\.$caption)")
     }
 
     init() {
-        caption = ""
+        caption = CaptionEntity(id: "", title: "")
     }
 
     init(caption: String) {
-        self.caption = caption
+        self.caption = CaptionEntity(id: caption, title: caption)
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let text = caption.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = caption.title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
             return .result(dialog: "还没有字幕")
         }
