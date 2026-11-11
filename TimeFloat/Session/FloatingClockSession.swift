@@ -468,6 +468,9 @@ final class FloatingClockSession: NSObject, ObservableObject {
             }
         }
         if filename == nil, sceneIsActive, !hidesInAppClock {
+            // The caption tap is still inside SwiftUI's update. Snapshotting in that
+            // turn draws an empty bitmap, and JPEG turns the empty pixels white.
+            await waitUntilDrawn()
             filename = WindowSnapshot.save(
                 caption: pending.caption,
                 date: pending.stamped,
@@ -647,6 +650,16 @@ final class FloatingClockSession: NSObject, ObservableObject {
             direction = "设备快 \(-ms) ms"
         }
         syncStatus = "\(sync.source) · \(direction) · 往返 \(rtt) ms · \(applied)"
+    }
+
+    /// Lets the caption highlight land in the window before a snapshot.
+    /// Capturing inside the tap's SwiftUI update produces an empty white bitmap.
+    private func waitUntilDrawn() async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                continuation.resume()
+            }
+        }
     }
 
     private func showBanner(_ text: String) {
